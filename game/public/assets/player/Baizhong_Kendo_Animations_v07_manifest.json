@@ -1,0 +1,1051 @@
+{
+  "asset": "Baizhong_Kendo_Animations_v07.glb",
+  "sourceAsset": "Baizhong_Kendo_Animations_v06.blend",
+  "fps": 60,
+  "coordinateConventions": {
+    "blender": "+Z up, character front is -Y",
+    "weaponRootLocal": "+Y points from blade base toward blade tip; +Z is the stable blade-up reference; +X completes a right-handed frame",
+    "quaternionOrder": "xyzw"
+  },
+  "actions": [
+    {
+      "name": "CombatIdle",
+      "frameStart": 1,
+      "frameEnd": 91,
+      "loop": true
+    },
+    {
+      "name": "AttackVertical",
+      "frameStart": 1,
+      "frameEnd": 25,
+      "loop": false
+    },
+    {
+      "name": "AttackDiagonalLeft",
+      "frameStart": 1,
+      "frameEnd": 25,
+      "loop": false
+    },
+    {
+      "name": "AttackDiagonalRight",
+      "frameStart": 1,
+      "frameEnd": 25,
+      "loop": false
+    },
+    {
+      "name": "AttackJab",
+      "frameStart": 1,
+      "frameEnd": 21,
+      "loop": false
+    },
+    {
+      "name": "BlockIdle",
+      "frameStart": 1,
+      "frameEnd": 61,
+      "loop": true
+    },
+    {
+      "name": "BlockSideLeft",
+      "frameStart": 1,
+      "frameEnd": 28,
+      "loop": true
+    },
+    {
+      "name": "BlockSideRight",
+      "frameStart": 1,
+      "frameEnd": 28,
+      "loop": true
+    },
+    {
+      "name": "BlockedStun",
+      "frameStart": 1,
+      "frameEnd": 61,
+      "loop": false
+    },
+    {
+      "name": "HitKnockback",
+      "frameStart": 1,
+      "frameEnd": 46,
+      "loop": false
+    },
+    {
+      "name": "AdvanceAfterHit",
+      "frameStart": 1,
+      "frameEnd": 25,
+      "loop": false
+    },
+    {
+      "name": "Defeat",
+      "frameStart": 1,
+      "frameEnd": 97,
+      "loop": false
+    },
+    {
+      "name": "AttackSwing",
+      "frameStart": 1,
+      "frameEnd": 17,
+      "loop": false,
+      "bodyOnly": true,
+      "activeIntervals": 13,
+      "recoveryIntervals": 4,
+      "strikeFrameRange": [
+        1,
+        10
+      ],
+      "extraSettleFrameRange": [
+        11,
+        13
+      ],
+      "bodyRecoveryFrameRange": [
+        14,
+        17
+      ],
+      "envelope": [
+        0,
+        0.24,
+        0.66,
+        0.92,
+        1,
+        1.025,
+        1.01,
+        0.975,
+        0.9,
+        0.92,
+        0.91,
+        0.915,
+        0.91,
+        0.7678125,
+        0.455,
+        0.1421875,
+        0
+      ],
+      "durationSeconds": 0.26666666666666666,
+      "recoveryAuthored": true
+    }
+  ],
+  "sourceInspection": {
+    "armature": "Baizhong_Rig",
+    "bodyRoot": "BAIZHONG_ROOT",
+    "sourceActionDatablocksPresent": 13,
+    "sourcePoseConstraintCount": 0,
+    "sourceNlaTrackCount": 0,
+    "sourceVersion": "v06"
+  },
+  "weaponControl": {
+    "weaponRoot": "WeaponRoot",
+    "primaryGrip": "GripPrimary",
+    "secondaryGrip": "GripSecondary",
+    "bladeBase": "BladeBase",
+    "bladeTip": "BladeTip",
+    "bladeUp": "BladeUp",
+    "reachCenter": "ReachCenter",
+    "weaponParentedToHand": false,
+    "weaponParentedToArmature": false,
+    "weaponRootAnimated": false,
+    "markerNodesAnimated": false,
+    "oldSocketRetained": false
+  },
+  "handContacts": {
+    "right": {
+      "bone": "hand.R",
+      "grip": "GripPrimary",
+      "localPosition": [
+        -0.005917249,
+        0.071103163,
+        -0.011459407
+      ],
+      "rotationOffset": [
+        0.253505823,
+        0.244489717,
+        -0.231470361,
+        0.906852275
+      ]
+    },
+    "left": {
+      "bone": "hand.L",
+      "grip": "GripSecondary",
+      "localPosition": [
+        -9.4e-07,
+        0.080380338,
+        2.83e-07
+      ],
+      "rotationOffset": [
+        0.135889337,
+        0.713876577,
+        0.673316276,
+        -0.136233307
+      ]
+    }
+  },
+  "handContactProvenance": {
+    "sourceAsset": "Baizhong_Kendo_Animations_v04.glb",
+    "sourceAnimation": "CombatIdle",
+    "sourceSample": "first keyframe",
+    "sourceGripFrame": "ShinaiGripPrimary / ShinaiGripSecondary",
+    "coordinateSpace": "glTF hand-local, quaternion order xyzw",
+    "method": "inverse(hand world matrix) * old grip world position; hand rotation relative to old Shinai grip frame"
+  },
+  "hierarchy": {
+    "original": [
+      "BAIZHONG_ROOT",
+      "Baizhong_Rig",
+      "hand.R",
+      "Socket_Weapon.R",
+      "Shinai"
+    ],
+    "new": {
+      "BAIZHONG_ROOT": [
+        "Baizhong_Rig",
+        "WeaponRoot",
+        "ReachCenter"
+      ],
+      "WeaponRoot": [
+        "Shinai",
+        "GripPrimary",
+        "GripSecondary",
+        "BladeBase",
+        "BladeTip",
+        "BladeUp"
+      ]
+    }
+  },
+  "armMeasurements": {
+    "units": "meters",
+    "rightShoulderJointRest": [
+      0.13860133290290833,
+      -0.006999999284744263,
+      1.3262836933135986
+    ],
+    "rightUpperArmLength": 0.25255337357521057,
+    "rightForearmLength": 0.23019205033779144,
+    "rightMaxReach": 0.482745423913002,
+    "rightApproximateWristPivotRest": [
+      0.5276341438293457,
+      -0.02199999988079071,
+      1.0411032438278198
+    ],
+    "leftShoulderJointRest": [
+      -0.13860133290290833,
+      -0.006999999284744263,
+      1.3262836933135986
+    ],
+    "leftUpperArmLength": 0.25255346298217773,
+    "leftForearmLength": 0.23019199073314667,
+    "leftMaxReach": 0.4827454537153244,
+    "leftApproximateWristPivotRest": [
+      -0.5276341438293457,
+      -0.02199999988079071,
+      1.0411032438278198
+    ]
+  },
+  "recommendedReach": {
+    "neutralFraction": 0.82,
+    "blockFraction": 0.65,
+    "attackFraction": 0.92,
+    "rightNeutralDistance": 0.39585124760866164,
+    "rightBlockDistance": 0.3137845255434513,
+    "rightAttackDistance": 0.4441257899999619,
+    "leftNeutralDistance": 0.395851272046566,
+    "leftBlockDistance": 0.3137845449149609,
+    "leftAttackDistance": 0.4441258174180985
+  },
+  "weaponMeasurements": {
+    "units": "meters",
+    "primaryToSecondaryGrip": 0.125,
+    "primaryToBladeBase": 0.15,
+    "primaryToBladeTip": 1.05799997990562,
+    "bladeLength": 0.9079999799056198,
+    "bladeUpOffset": 0.1,
+    "bladeUpCrossProductLength": 0.09080002670975641,
+    "handleBackToShirtFrontClearance": 0.04019707441329956
+  },
+  "markerLocalPositions": {
+    "GripPrimary": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "GripSecondary": [
+      0.0,
+      -0.125,
+      0.0
+    ],
+    "BladeBase": [
+      0.0,
+      0.15,
+      0.0
+    ],
+    "BladeTip": [
+      0.0,
+      1.058,
+      0.0
+    ],
+    "BladeUp": [
+      0.0,
+      0.15,
+      0.1
+    ]
+  },
+  "neutralPose": {
+    "coordinateSpace": "Blender parent-local",
+    "rotationQuaternionOrder": "xyzw",
+    "weaponRootLocalPosition": [
+      0.1,
+      -0.38,
+      1.13
+    ],
+    "weaponRootLocalRotationQuaternion": [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+    ],
+    "weaponRootLocalRotationQuaternionBlenderWXYZ": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "reachCenterLocalPosition": [
+      0.0,
+      -0.08,
+      1.3
+    ],
+    "rightShoulderToPrimaryGrip": 0.42325683927282415,
+    "rightReachFraction": 0.8767702774725864,
+    "rightElbowTriangleInternalAngleDegrees": 122.44281904930696,
+    "leftShoulderToSecondaryGrip": 0.3961841545917562,
+    "leftReachFraction": 0.8206895612224377,
+    "leftElbowTriangleInternalAngleDegrees": 110.2220108421546
+  },
+  "gltfNeutralPose": {
+    "coordinateSpace": "glTF node local",
+    "rotationQuaternionOrder": "xyzw",
+    "weaponRootLocalTranslation": [
+      0.1,
+      1.13,
+      0.38
+    ],
+    "weaponRootLocalRotationQuaternion": [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+    ]
+  },
+  "sourceRevisionMetadata": {
+    "leftArm": "v04 analytical upper-arm/forearm two-link off-hand solve preserved.",
+    "diagonalAttacks": "v04 diagonal follow-through clearance changes preserved.",
+    "blockedStun": "v04 off-hand elbow-plane clearance adjustment preserved.",
+    "defeat": "v04 centered elevated two-hand fall pose preserved.",
+    "hitKnockback": "v04 restored lower-body motion and torso lean limits preserved.",
+    "actionRecovery": "AttackDiagonalLeft, AttackDiagonalRight, Defeat, and HitKnockback were absent as datablocks in the saved v04 .blend, so their v04 GLB poses were re-baked frame-by-frame into the unchanged native rig basis. Full-frame round-trip comparison is within 0.00001508 matrix units."
+  },
+  "validation": {
+    "passed": true,
+    "sourceActionCount": 13,
+    "glbActionCount": 13,
+    "sourceV06Sha256": "00902024c0dcb255865a76fef96cae1806dc6279089f4da9b5d267853d76e8ec",
+    "sourceV06Unchanged": true,
+    "originalActionRegression": {
+      "AdvanceAfterHit": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "60a86d5282b8c01dc95121ab3c8e38fa9c9e64b06d9b743c9e7f58376c5582ce",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "AttackDiagonalLeft": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "14b41d630554528b27b7abc32ad917bd7c0505a08fa74aad76004bebb6fe1a42",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "AttackDiagonalRight": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "46e462fab23cd49205dcfd39caf54702f8d5eb060a05b0747cb85b1c029a2856",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "AttackJab": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "235013b3152980158b0de7e4c74bc5cd6e65bb0b07bde4161043b48f3ceba9eb",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "AttackVertical": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "e9967324593bc2a5b58cdfe7d2b056e034e7ee6c524152ed12d9b7dc35b664dd",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "BlockedStun": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "20dd63a82d347a7e49dc7f78b559896362baf507056129af5d6b4a5e72d1212e",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "BlockIdle": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "77ba0e272e48b07d63835b2edf98cf7cb6848ac8c7b03a5b82cb33f4ce02d659",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "BlockSideLeft": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "e1d247fddc7c7ff4b0733482497e03cf242f3564e6c370836c432e531e5b8464",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "BlockSideRight": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "b8031d117eebf7754da5844816e4e122f9d602c9670704ed689eae0f3fc0d41c",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "CombatIdle": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "e0f1810b95f24500e0221b22d711cf144dadf8e52a061d6218d3d5d955a60c54",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "Defeat": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "9e9df6f86698c29923428cb2a829f9b0f9a12ab0dbc5ddb8b0b66ada187c6f5f",
+        "maximumPoseMatrixDifference": 0.0
+      },
+      "HitKnockback": {
+        "actionDataIdentical": true,
+        "sourceActionSha256": "18bbcdd85a12641b459b43b0020a2d20ac8d3651f6d2234e501e736aee4170ae",
+        "maximumPoseMatrixDifference": 0.0
+      }
+    },
+    "geometryWeightsMaterialsIdentical": true,
+    "hierarchyIdentical": true,
+    "attackSwing": {
+      "frameRange": [
+        1,
+        17
+      ],
+      "fps": 60,
+      "durationSeconds": 0.26666666666666666,
+      "runtimeActiveTicks": 13,
+      "runtimeRecoveryTicks": 4,
+      "envelope": [
+        0,
+        0.24,
+        0.66,
+        0.92,
+        1,
+        1.025,
+        1.01,
+        0.975,
+        0.9,
+        0.92,
+        0.91,
+        0.915,
+        0.91,
+        0.7678125,
+        0.455,
+        0.1421875,
+        0
+      ],
+      "bodyNormalization": 1.025,
+      "sourceInterpolation": "BEZIER / AUTO_CLAMPED",
+      "sourceCurveCount": 189,
+      "sourceBoneTargets": [
+        "pelvis",
+        "spine",
+        "chest",
+        "neck",
+        "head",
+        "halo",
+        "cape.L",
+        "cape.C",
+        "cape.R",
+        "thigh.L",
+        "shin.L",
+        "foot.L",
+        "thigh.R",
+        "shin.R",
+        "foot.R",
+        "skirt_front.L",
+        "skirt_side.L",
+        "skirt_back.L",
+        "skirt_front.R",
+        "skirt_side.R",
+        "skirt_back.R"
+      ],
+      "glbBoneTargets": [
+        "cape.C",
+        "cape.L",
+        "cape.R",
+        "chest",
+        "foot.L",
+        "foot.R",
+        "halo",
+        "head",
+        "neck",
+        "pelvis",
+        "shin.L",
+        "shin.R",
+        "skirt_back.L",
+        "skirt_back.R",
+        "skirt_front.L",
+        "skirt_front.R",
+        "skirt_side.L",
+        "skirt_side.R",
+        "spine",
+        "thigh.L",
+        "thigh.R"
+      ],
+      "glbSamplerInterpolations": [
+        "CUBICSPLINE"
+      ],
+      "forbiddenChannels": [],
+      "maximumLeftFootMatrixDrift": 1.8328428268432617e-06,
+      "maximumSubframeLeftFootMatrixDrift": 0.0009504258632659912,
+      "maximumRootMatrixDrift": 0,
+      "rightFootAdvanceMeters": 0.26,
+      "pelvisAdvanceMeters": 0.16,
+      "pelvisDropMeters": 0.12,
+      "samples": [
+        {
+          "frame": 1,
+          "envelope": 0,
+          "leftAnkle": [
+            -0.1600017547607422,
+            0.14000064134597778,
+            0.11000075936317444
+          ],
+          "rightAnkle": [
+            0.17999568581581116,
+            -0.10000011324882507,
+            0.11000010371208191
+          ],
+          "pelvis": [
+            0.0,
+            0.010998483747243881,
+            0.9631407856941223
+          ]
+        },
+        {
+          "frame": 2,
+          "envelope": 0.24,
+          "leftAnkle": [
+            -0.16000139713287354,
+            0.1400008201599121,
+            0.11000078916549683
+          ],
+          "rightAnkle": [
+            0.17999643087387085,
+            -0.16087855398654938,
+            0.12767791748046875
+          ],
+          "pelvis": [
+            0.0,
+            -0.026464935392141342,
+            0.935043215751648
+          ]
+        },
+        {
+          "frame": 3,
+          "envelope": 0.66,
+          "leftAnkle": [
+            -0.16000352799892426,
+            0.1400003433227539,
+            0.11000105738639832
+          ],
+          "rightAnkle": [
+            0.1799958050251007,
+            -0.2674148678779602,
+            0.13500037789344788
+          ],
+          "pelvis": [
+            0.0,
+            -0.09202590584754944,
+            0.885872483253479
+          ]
+        },
+        {
+          "frame": 4,
+          "envelope": 0.92,
+          "leftAnkle": [
+            -0.16000351309776306,
+            0.14000055193901062,
+            0.11000102758407593
+          ],
+          "rightAnkle": [
+            0.1799955666065216,
+            -0.3333658277988434,
+            0.12767794728279114
+          ],
+          "pelvis": [
+            0.0,
+            -0.13261127471923828,
+            0.855433464050293
+          ]
+        },
+        {
+          "frame": 5,
+          "envelope": 1,
+          "leftAnkle": [
+            -0.16000361740589142,
+            0.14000046253204346,
+            0.11000102758407593
+          ],
+          "rightAnkle": [
+            0.1799955517053604,
+            -0.35365843772888184,
+            0.11000028252601624
+          ],
+          "pelvis": [
+            0.0,
+            -0.14509907364845276,
+            0.8460676670074463
+          ]
+        },
+        {
+          "frame": 6,
+          "envelope": 1.025,
+          "leftAnkle": [
+            -0.16000361740589142,
+            0.14000044763088226,
+            0.1100008487701416
+          ],
+          "rightAnkle": [
+            0.17999547719955444,
+            -0.36000001430511475,
+            0.11000052094459534
+          ],
+          "pelvis": [
+            0.0,
+            -0.14900152385234833,
+            0.8431408405303955
+          ]
+        },
+        {
+          "frame": 7,
+          "envelope": 1.01,
+          "leftAnkle": [
+            -0.1600036323070526,
+            0.1400003433227539,
+            0.11000096797943115
+          ],
+          "rightAnkle": [
+            0.17999552190303802,
+            -0.3561951518058777,
+            0.11000052094459534
+          ],
+          "pelvis": [
+            0.0,
+            -0.14666004478931427,
+            0.8448969125747681
+          ]
+        },
+        {
+          "frame": 8,
+          "envelope": 0.975,
+          "leftAnkle": [
+            -0.16000354290008545,
+            0.1400003284215927,
+            0.11000096797943115
+          ],
+          "rightAnkle": [
+            0.17999550700187683,
+            -0.347317099571228,
+            0.11000040173530579
+          ],
+          "pelvis": [
+            0.0,
+            -0.14119663834571838,
+            0.8489944934844971
+          ]
+        },
+        {
+          "frame": 9,
+          "envelope": 0.9,
+          "leftAnkle": [
+            -0.1600034534931183,
+            0.14000040292739868,
+            0.11000093817710876
+          ],
+          "rightAnkle": [
+            0.17999562621116638,
+            -0.3282926678657532,
+            0.11000028252601624
+          ],
+          "pelvis": [
+            0.0,
+            -0.12948931753635406,
+            0.8577749729156494
+          ]
+        },
+        {
+          "frame": 10,
+          "envelope": 0.92,
+          "leftAnkle": [
+            -0.16000351309776306,
+            0.14000055193901062,
+            0.11000102758407593
+          ],
+          "rightAnkle": [
+            0.17999562621116638,
+            -0.33336585760116577,
+            0.11000031232833862
+          ],
+          "pelvis": [
+            0.0,
+            -0.13261127471923828,
+            0.855433464050293
+          ]
+        },
+        {
+          "frame": 11,
+          "envelope": 0.91,
+          "leftAnkle": [
+            -0.1600034236907959,
+            0.1400003731250763,
+            0.11000090837478638
+          ],
+          "rightAnkle": [
+            0.179995596408844,
+            -0.33082929253578186,
+            0.1100003719329834
+          ],
+          "pelvis": [
+            0.0,
+            -0.13105030357837677,
+            0.8566042184829712
+          ]
+        },
+        {
+          "frame": 12,
+          "envelope": 0.915,
+          "leftAnkle": [
+            -0.1600036472082138,
+            0.14000043272972107,
+            0.11000096797943115
+          ],
+          "rightAnkle": [
+            0.17999553680419922,
+            -0.33209747076034546,
+            0.11000043153762817
+          ],
+          "pelvis": [
+            0.0,
+            -0.13183079659938812,
+            0.8560188412666321
+          ]
+        },
+        {
+          "frame": 13,
+          "envelope": 0.91,
+          "leftAnkle": [
+            -0.1600034236907959,
+            0.1400003731250763,
+            0.11000090837478638
+          ],
+          "rightAnkle": [
+            0.179995596408844,
+            -0.33082929253578186,
+            0.1100003719329834
+          ],
+          "pelvis": [
+            0.0,
+            -0.13105030357837677,
+            0.8566042184829712
+          ]
+        },
+        {
+          "frame": 14,
+          "envelope": 0.7678125,
+          "leftAnkle": [
+            -0.1600033938884735,
+            0.14000053703784943,
+            0.11000102758407593
+          ],
+          "rightAnkle": [
+            0.17999567091464996,
+            -0.29476237297058105,
+            0.12272822856903076
+          ],
+          "pelvis": [
+            0.0,
+            -0.10885518044233322,
+            0.8732505440711975
+          ]
+        },
+        {
+          "frame": 15,
+          "envelope": 0.455,
+          "leftAnkle": [
+            -0.1600012630224228,
+            0.14000040292739868,
+            0.11000055074691772
+          ],
+          "rightAnkle": [
+            0.17999622225761414,
+            -0.2154151350259781,
+            0.12800028920173645
+          ],
+          "pelvis": [
+            0.0,
+            -0.060025908052921295,
+            0.9098725318908691
+          ]
+        },
+        {
+          "frame": 16,
+          "envelope": 0.1421875,
+          "leftAnkle": [
+            -0.16000153124332428,
+            0.14000076055526733,
+            0.11000069975852966
+          ],
+          "rightAnkle": [
+            0.17999619245529175,
+            -0.13606750965118408,
+            0.12272822856903076
+          ],
+          "pelvis": [
+            0.0,
+            -0.011196649633347988,
+            0.9464945197105408
+          ]
+        },
+        {
+          "frame": 17,
+          "envelope": 0,
+          "leftAnkle": [
+            -0.1600017547607422,
+            0.14000064134597778,
+            0.11000075936317444
+          ],
+          "rightAnkle": [
+            0.17999568581581116,
+            -0.10000011324882507,
+            0.11000010371208191
+          ],
+          "pelvis": [
+            0.0,
+            0.010998483747243881,
+            0.9631407856941223
+          ]
+        }
+      ],
+      "strikeFrameRange": [
+        1,
+        10
+      ],
+      "extraSettleFrameRange": [
+        11,
+        13
+      ],
+      "bodyRecoveryFrameRange": [
+        14,
+        17
+      ],
+      "recoveryAuthored": true,
+      "sourceKeysPerCurve": 257,
+      "subframeAuthoringStep": 0.0625,
+      "maximumSubframeLeftFootHeadDriftMeters": 0.0002690331640582563,
+      "maximumFinalBodyIdleMatrixError": 2.980232238769531e-07,
+      "maximumPreservedStrikeMatrixDifference": 0.0
+    },
+    "exportOptions": {
+      "filepath": "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07.glb",
+      "export_format": "GLB",
+      "use_selection": true,
+      "export_animations": true,
+      "export_animation_mode": "ACTIONS",
+      "export_force_sampling": false,
+      "export_optimize_animation_size": false,
+      "export_anim_slide_to_zero": true,
+      "export_frame_range": false,
+      "export_skins": true,
+      "export_yup": true
+    },
+    "roundTrip": {
+      "passed": true,
+      "attackSwingComparisonScope": "21 keyed body bones; unkeyed arms are supplied by runtime IK",
+      "attackSwingImportedTargets": [
+        "cape.C",
+        "cape.L",
+        "cape.R",
+        "chest",
+        "foot.L",
+        "foot.R",
+        "halo",
+        "head",
+        "neck",
+        "pelvis",
+        "shin.L",
+        "shin.R",
+        "skirt_back.L",
+        "skirt_back.R",
+        "skirt_front.L",
+        "skirt_front.R",
+        "skirt_side.L",
+        "skirt_side.R",
+        "spine",
+        "thigh.L",
+        "thigh.R"
+      ],
+      "importedActionCount": 13,
+      "actions": {
+        "AdvanceAfterHit": {
+          "frameRange": [
+            1.0,
+            25.0
+          ],
+          "expectedIntervals": 24,
+          "maximumBoneHeadDifference": 5.848991164535246e-06,
+          "maximumBoneMatrixDifference": 1.5139579772949219e-05
+        },
+        "AttackDiagonalLeft": {
+          "frameRange": [
+            1.0,
+            25.0
+          ],
+          "expectedIntervals": 24,
+          "maximumBoneHeadDifference": 8.178772830470746e-07,
+          "maximumBoneMatrixDifference": 1.5139579772949219e-05
+        },
+        "AttackDiagonalRight": {
+          "frameRange": [
+            1.0,
+            25.0
+          ],
+          "expectedIntervals": 24,
+          "maximumBoneHeadDifference": 8.566547841909414e-07,
+          "maximumBoneMatrixDifference": 1.5139579772949219e-05
+        },
+        "AttackJab": {
+          "frameRange": [
+            1.0,
+            21.0
+          ],
+          "expectedIntervals": 20,
+          "maximumBoneHeadDifference": 3.6364348309151814e-06,
+          "maximumBoneMatrixDifference": 1.5139579772949219e-05
+        },
+        "AttackVertical": {
+          "frameRange": [
+            1.0,
+            25.0
+          ],
+          "expectedIntervals": 24,
+          "maximumBoneHeadDifference": 4.358643876513016e-06,
+          "maximumBoneMatrixDifference": 1.519918441772461e-05
+        },
+        "BlockedStun": {
+          "frameRange": [
+            1.0,
+            61.0
+          ],
+          "expectedIntervals": 60,
+          "maximumBoneHeadDifference": 2.496314395277183e-06,
+          "maximumBoneMatrixDifference": 1.531839370727539e-05
+        },
+        "BlockIdle": {
+          "frameRange": [
+            1.0,
+            61.0
+          ],
+          "expectedIntervals": 60,
+          "maximumBoneHeadDifference": 4.381537286040448e-06,
+          "maximumBoneMatrixDifference": 1.5079975128173828e-05
+        },
+        "BlockSideLeft": {
+          "frameRange": [
+            1.0,
+            28.0
+          ],
+          "expectedIntervals": 27,
+          "maximumBoneHeadDifference": 2.37740368340171e-06,
+          "maximumBoneMatrixDifference": 1.4841556549072266e-05
+        },
+        "BlockSideRight": {
+          "frameRange": [
+            1.0,
+            28.0
+          ],
+          "expectedIntervals": 27,
+          "maximumBoneHeadDifference": 2.929319674826876e-06,
+          "maximumBoneMatrixDifference": 1.4901161193847656e-05
+        },
+        "CombatIdle": {
+          "frameRange": [
+            1.0,
+            91.0
+          ],
+          "expectedIntervals": 90,
+          "maximumBoneHeadDifference": 4.339548379599724e-06,
+          "maximumBoneMatrixDifference": 1.537799835205078e-05
+        },
+        "Defeat": {
+          "frameRange": [
+            1.0,
+            97.0
+          ],
+          "expectedIntervals": 96,
+          "maximumBoneHeadDifference": 1.0646772788701206e-06,
+          "maximumBoneMatrixDifference": 1.519918441772461e-05
+        },
+        "HitKnockback": {
+          "frameRange": [
+            1.0,
+            46.0
+          ],
+          "expectedIntervals": 45,
+          "maximumBoneHeadDifference": 2.1587277815215293e-06,
+          "maximumBoneMatrixDifference": 1.519918441772461e-05
+        },
+        "AttackSwing": {
+          "frameRange": [
+            1.0,
+            17.0
+          ],
+          "expectedIntervals": 16,
+          "maximumBoneHeadDifference": 4.074398212989265e-06,
+          "maximumBoneMatrixDifference": 1.4960765838623047e-05
+        }
+      },
+      "hierarchy": {
+        "WeaponRoot": "BAIZHONG_ROOT",
+        "Shinai": "WeaponRoot",
+        "ReachCenter": "BAIZHONG_ROOT",
+        "GripPrimary": "WeaponRoot",
+        "GripSecondary": "WeaponRoot",
+        "BladeBase": "WeaponRoot",
+        "BladeTip": "WeaponRoot",
+        "BladeUp": "WeaponRoot"
+      }
+    }
+  },
+  "limitations": [
+    "Arms and weapon are supplied by runtime canonical playback and two-hand IK; previews retain neutral arm pose.",
+    "Frames 14-17 restore the body to CombatIdle frame 1; arm/weapon recovery remains runtime controlled.",
+    "At deepest lunge existing Hakama weighting exposes a small knee seam; geometry and weights remain unchanged.",
+    "Left foot is analytically planted at keyed ticks, including recovery; interpolated subframe drift is measured in validation."
+  ],
+  "sourceBackup": {
+    "path": "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v06.blend",
+    "sizeBytes": 1769940,
+    "sha256": "00902024c0dcb255865a76fef96cae1806dc6279089f4da9b5d267853d76e8ec"
+  },
+  "files": {
+    "editableBlend": "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07.blend",
+    "gameReadyGlb": "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07.glb",
+    "manifest": "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_manifest.json",
+    "validation": "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_validation.json",
+    "roundTripValidation": "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_roundtrip_validation.json",
+    "screenshots": [
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f01.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f03.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f05.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f06.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f08.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f09.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f10.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f13.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f15.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_threequarter_f17.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_side_f06.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_side_f10.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_side_f13.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_side_f15.png",
+      "D:\\Work\\blender_refs\\low_poly_style\\baizhong_model\\Baizhong_Kendo_Animations_v07_attack_side_f17.png"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+.tmp.drivedownload
+.tmp.driveupload
+game/node_modules
+game/dist
+spacetimedb/spacetimedb/node_modules
+.pnpm-store/
+codex_changes.diff
+codex_changes_*
+game/playwright_images
+game/.env
+game/package-lock.json
+game/.tools/

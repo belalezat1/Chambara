@@ -1,0 +1,68 @@
+{
+  "asset": "Baizhong_Kendo_Animations_v04",
+  "fps": 60,
+  "actions": [
+    {"name": "CombatIdle", "frameStart": 1, "frameEnd": 91, "loop": true},
+    {"name": "AttackVertical", "frameStart": 1, "frameEnd": 25, "loop": false},
+    {"name": "AttackDiagonalLeft", "frameStart": 1, "frameEnd": 25, "loop": false},
+    {"name": "AttackDiagonalRight", "frameStart": 1, "frameEnd": 25, "loop": false},
+    {"name": "AttackJab", "frameStart": 1, "frameEnd": 21, "loop": false},
+    {"name": "BlockIdle", "frameStart": 1, "frameEnd": 61, "loop": true},
+    {"name": "BlockSideLeft", "frameStart": 1, "frameEnd": 28, "loop": true},
+    {"name": "BlockSideRight", "frameStart": 1, "frameEnd": 28, "loop": true},
+    {"name": "BlockedStun", "frameStart": 1, "frameEnd": 61, "loop": false},
+    {"name": "HitKnockback", "frameStart": 1, "frameEnd": 46, "loop": false},
+    {"name": "AdvanceAfterHit", "frameStart": 1, "frameEnd": 25, "loop": false},
+    {"name": "Defeat", "frameStart": 1, "frameEnd": 97, "loop": false}
+  ],
+  "revisionChanges": {
+    "leftArm": "Replaced the unconstrained three-bone off-hand bake with an analytical upper-arm/forearm two-link solve. The elbow is placed outside the torso in a torso-relative bend plane and hand.L is aligned to ShinaiGripSecondary.",
+    "diagonalAttacks": "Moved the grip forward and down during diagonal follow-throughs so the off hand and forearm remain clear of the head and hair.",
+    "blockedStun": "Adjusted the off-hand elbow plane to remain outside the shirt during the deflection.",
+    "defeat": "Uses a centered elevated two-hand pose during the fall, with a forward-then-upward weapon transition that clears the head and hair.",
+    "hitKnockback": "Restored the v02 pelvis, leg, knee, and foot motion. Only the upper torso bend was reduced; backward world lean is capped to 15 degrees on the spine and 20 degrees on the chest."
+  },
+  "weaponHierarchy": [
+    "BAIZHONG_ROOT",
+    "Baizhong_Rig",
+    "hand.R",
+    "Socket_Weapon.R",
+    "Shinai"
+  ],
+  "runtimeControl": {
+    "primaryHandBone": "hand.R",
+    "secondaryHandBone": "hand.L",
+    "secondaryReference": "ShinaiGripSecondary",
+    "weaponNodesAnimated": false,
+    "note": "Phone orientation can continue to override the weapon/socket, followed by runtime off-hand IK to ShinaiGripSecondary."
+  },
+  "validation": {
+    "sourceActionCount": 12,
+    "roundTripActionCount": 12,
+    "editableTriangleCount": 2299,
+    "directGlbTriangleCount": 2451,
+    "rootBoneMaximumChannelVariation": 0.0,
+    "loopEndpointMaximumMatrixDifference": 0.000165582,
+    "minimumLeftElbowAngleDegrees": 44.345,
+    "maximumLeftElbowAngleDegrees": 163.318,
+    "maximumLeftWristAngleDegrees": 74.312,
+    "maximumSecondaryGripDistanceMeters": 0.0000036,
+    "hitKnockbackSpineMaximumBackwardLeanDegrees": 15.001,
+    "hitKnockbackChestMaximumBackwardLeanDegrees": 20.001,
+    "hitKnockbackV02LowerBodyMaximumMatrixDifference": 0.000000656,
+    "checkedEveryAnimationFrame": true,
+    "leftForearmHandBodyIntersectionCount": 0,
+    "shinaiBodyIntersectionCount": 0,
+    "hairZeroWeightVertices": 0,
+    "poseConstraintCount": 0,
+    "nlaTrackCount": 0,
+    "glbRoundTripArmature": "Baizhong_Rig"
+  },
+  "files": {
+    "backupBlend": "D:/Work/blender_refs/low_poly_style/baizhong_model/Baizhong_Kendo_Animations_v03_leftarm_backup_20260915.blend",
+    "editableBlend": "D:/Work/blender_refs/low_poly_style/baizhong_model/Baizhong_Kendo_Animations_v04.blend",
+    "gameReadyGlb": "D:/Work/blender_refs/low_poly_style/baizhong_model/Baizhong_Kendo_Animations_v04.glb",
+    "preview": "D:/Work/blender_refs/low_poly_style/baizhong_model/Baizhong_Kendo_Animations_v04_preview.png",
+    "actionReview": "D:/Work/blender_refs/low_poly_style/baizhong_model/Baizhong_Kendo_Animations_v04_action_review.png"
+  }
+}
