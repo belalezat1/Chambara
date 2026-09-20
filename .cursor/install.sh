@@ -19,6 +19,11 @@ echo "==> Installing game dependencies"
 cd "$REPO_ROOT/game"
 npm install
 
+# Playwright Chromium for the repo's browser smoke scripts (game/scripts/*.mjs).
+# Idempotent: skips download if the browser is already cached.
+echo "==> Ensuring Playwright Chromium is installed"
+npx --yes playwright install chromium
+
 # 3. Backend SpacetimeDB module dependencies + build.
 echo "==> Installing and building SpacetimeDB module"
 cd "$REPO_ROOT/spacetimedb/spacetimedb"
