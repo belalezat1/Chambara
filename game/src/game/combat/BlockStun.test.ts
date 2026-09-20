@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   BLOCK_ATTACKER_STUN_SECONDS,
   BLOCK_ANGLE_DEG,
+  HIT_INVULN_MS,
   STUN_SECONDS,
 } from "./CombatConstants.ts";
 import { resolveCombat } from "./CombatResolver.ts";
@@ -14,9 +15,12 @@ function near(actual: number, expected: number, eps = 1e-6): void {
   assert.ok(Math.abs(actual - expected) <= eps, `${actual} ≉ ${expected}`);
 }
 
-test("block stun constants: attacker 1.5s, hit stun ~1.0s", () => {
-  assert.equal(BLOCK_ATTACKER_STUN_SECONDS, 1.5);
+test("block stun constants: attacker 2.5s, hit stun ~1.0s", () => {
+  assert.equal(BLOCK_ATTACKER_STUN_SECONDS, 2.5);
   near(STUN_SECONDS, 1.0);
+  // Invuln must not cover the full block-stun window (retaliation must land).
+  assert.ok(HIT_INVULN_MS < BLOCK_ATTACKER_STUN_SECONDS * 1000);
+  assert.ok(HIT_INVULN_MS <= 200);
 });
 
 test("after block, blocker is not stunned and can arm a slash immediately", () => {
@@ -59,6 +63,7 @@ test("after block, blocker is not stunned and can arm a slash immediately", () =
   near(result.dummyRootX, right);
 
   // Blocker free: arming accepts a slash when not stunned (blocker never gets stun).
+  // Simulates release within ~100ms: blocking=false, stunned=false.
   const arming = advanceSlashArming({
     slashCount: 2,
     lastSlashCount: 1,
@@ -78,4 +83,13 @@ test("after block, blocker is not stunned and can arm a slash immediately", () =
     slashAccepted: true,
   });
   assert.equal(attackerArming.armed, false);
+});
+
+test("attacker block-stun invuln is short — retaliation can connect mid-stun", () => {
+  // Presentation contract: after HIT_INVULN_MS the stunned attacker is hittable
+  // for the remainder of BLOCK_ATTACKER_STUN_SECONDS.
+  const stunMs = BLOCK_ATTACKER_STUN_SECONDS * 1000;
+  assert.ok(HIT_INVULN_MS * 4 < stunMs);
+  const remainingHittableMs = stunMs - HIT_INVULN_MS;
+  assert.ok(remainingHittableMs >= 2000);
 });

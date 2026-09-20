@@ -37,6 +37,7 @@ import {
 import CreateOrJoinMatchReducer from "./create_or_join_match_reducer";
 import LeaveMatchReducer from "./leave_match_reducer";
 import PublishCombatOutcomeReducer from "./publish_combat_outcome_reducer";
+import PublishMatchPhaseReducer from "./publish_match_phase_reducer";
 import ResetMatchCombatReducer from "./reset_match_combat_reducer";
 import UpdateSwordPoseReducer from "./update_sword_pose_reducer";
 import UpsertCombatIntentReducer from "./upsert_combat_intent_reducer";
@@ -47,6 +48,7 @@ import UpsertCombatIntentReducer from "./upsert_combat_intent_reducer";
 import CombatIntentRow from "./combat_intent_table";
 import CombatOutcomeRow from "./combat_outcome_table";
 import MatchRow from "./match_table";
+import MatchPhaseRow from "./match_phase_table";
 import MatchPlayerRow from "./match_player_table";
 import SwordPoseRow from "./sword_pose_table";
 
@@ -90,6 +92,17 @@ const tablesSchema = __schema({
       { name: 'match_room_code_key', constraint: 'unique', columns: ['roomCode'] },
     ],
   }, MatchRow),
+  matchPhase: __table({
+    name: 'match_phase',
+    indexes: [
+      { accessor: 'roomCode', name: 'match_phase_room_code_idx_btree', algorithm: 'btree', columns: [
+        'roomCode',
+      ] },
+    ],
+    constraints: [
+      { name: 'match_phase_room_code_key', constraint: 'unique', columns: ['roomCode'] },
+    ],
+  }, MatchPhaseRow),
   matchPlayer: __table({
     name: 'match_player',
     indexes: [
@@ -125,6 +138,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_or_join_match", CreateOrJoinMatchReducer),
   __reducerSchema("leave_match", LeaveMatchReducer),
   __reducerSchema("publish_combat_outcome", PublishCombatOutcomeReducer),
+  __reducerSchema("publish_match_phase", PublishMatchPhaseReducer),
   __reducerSchema("reset_match_combat", ResetMatchCombatReducer),
   __reducerSchema("update_sword_pose", UpdateSwordPoseReducer),
   __reducerSchema("upsert_combat_intent", UpsertCombatIntentReducer),

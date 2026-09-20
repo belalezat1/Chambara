@@ -154,6 +154,54 @@ export class MatchPhaseMachine {
     return null;
   }
 
+  /**
+   * Guest path: park outside seats until the first host match_phase row arrives.
+   * Solo / host still use startMatch().
+   */
+  parkForRemoteSync(): MatchPhaseSnapshot {
+    this.phase = "Intro";
+    this.countdownLabel = null;
+    this.phaseElapsed = 0;
+    this.countdownBeat = 0;
+    this.matchWinner = null;
+    return {
+      ...this.hud(),
+      playerX: -INTRO_OUTSIDE_HALF,
+      dummyX: INTRO_OUTSIDE_HALF,
+    };
+  }
+
+  /**
+   * Apply host-authoritative phase + host-frame seats (caller maps seats for guest).
+   * Used by guests so countdown / WalkIn / Fighting stay locked to the host.
+   */
+  applyAuthoritative(snap: {
+    phase: MatchPhase;
+    countdownLabel: CountdownLabel;
+    roundIndex: number;
+    p1Wins: number;
+    p2Wins: number;
+    matchWinner: "p1" | "p2" | null;
+    playerX: number;
+    dummyX: number;
+  }): MatchPhaseSnapshot {
+    this.phase = snap.phase;
+    this.countdownLabel = snap.countdownLabel;
+    this.roundIndex = snap.roundIndex;
+    this.p1Wins = snap.p1Wins;
+    this.p2Wins = snap.p2Wins;
+    this.matchWinner = snap.matchWinner;
+    if (snap.phase === "Countdown" && snap.countdownLabel) {
+      const idx = COUNTDOWN_LABELS.indexOf(snap.countdownLabel);
+      this.countdownBeat = idx >= 0 ? idx : this.countdownBeat;
+    }
+    return {
+      ...this.hud(),
+      playerX: snap.playerX,
+      dummyX: snap.dummyX,
+    };
+  }
+
   /** Record a soft-edge ring-out for seat P1 (host) or P2 (guest). */
   onRingOut(winner: "p1" | "p2"): {
     matchOver: boolean;

@@ -1,0 +1,7 @@
+# Seat mirror proof (host hit guest)
+hostFrame player=-1.020 dummy=1.580
+hostView  local=-1.020 remote=1.580  // attacker advance, defender outbound+
+guestView local=-1.580 remote=1.020  // defender outbound-, attacker toward
+ADVANCE=0.28 KB=0.28
+BLOCK_ATTACKER_STUN=2.5s HIT_INVULN_MS=150
+PASS: guest local more negative than -seat; remote advances toward local

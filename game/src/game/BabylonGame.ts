@@ -63,8 +63,13 @@ import {
 import { MatchPhaseMachine, type MatchPhaseHud } from "./combat/MatchPhaseMachine";
 import { isInHitWindow, resolveCombat, type FighterSnapshot } from "./combat/CombatResolver";
 import { estimateRemoteBladePose, pickAttackerBladePose } from "./combat/CombatRemoteBlade";
+import {
+  mapHostSeatsToLocalView,
+  mapHostSoftEdgeToLocalView,
+  publisherAuthoredRootX,
+} from "./combat/CombatSeatMap";
 import { advanceSlashArming } from "./combat/CombatSlashArming";
-import type { CombatIntentPublish, CombatOutcomeEvent, RemoteCombatIntent } from "./net/SpacetimeMatchClient";
+import type { CombatIntentPublish, CombatOutcomeEvent, MatchPhaseNetworkEvent, RemoteCombatIntent } from "./net/SpacetimeMatchClient";
 import { clampTwoBoneTarget } from "./input/ArmPoseMath";
 import {
   composeTorsoFollowRotation,
@@ -562,6 +567,10 @@ export class BabylonGame {
   private lastResolvedSlashKey = "";
   private outcomeSeq = 0;
   private lastAppliedOutcomeSeq = -1;
+  private lastAppliedMatchPhaseSeq = -1;
+  private matchPhasePublishSeq = 0;
+  private pendingHostMatchPhase: MatchPhaseNetworkEvent | null = null;
+  private lastHostMatchPhasePublishAt = 0;
   private lastCombatOutcome: CombatOutcomeKind | null = null;
   private lastMissReason: "out_of_window" | "invuln" | "no_contact" | null = null;
   private combatWinnerHex: string | null = null;
@@ -609,6 +618,7 @@ export class BabylonGame {
   /**
    * Start or restart intro → countdown → walk-in → Fighting.
    * Used for solo practice and when a PvP opponent connects.
+   * Guests park on intro seats and wait for host match_phase sync.
    */
   beginDuelSession(): void {
     this.duelSessionActive = true;
@@ -624,17 +634,42 @@ export class BabylonGame {
     this.dummyInvulnUntil = 0;
     this.localStunUntil = 0;
     this.setLocalBodyOpaque(false);
-    const snap = this.matchPhase.startMatch();
+    this.matchPhasePublishSeq = 0;
+    this.lastAppliedMatchPhaseSeq = -1;
+    const snap =
+      this.matchCombatActive && !this.matchIsHost
+        ? this.matchPhase.parkForRemoteSync()
+        : this.matchPhase.startMatch();
     this.playerCombatX = snap.playerX;
     this.dummyCombatX = snap.dummyX;
     this.applyCombatSeats();
     this.rebindWeaponAfterSeatChange();
     this.player?.controller.play("CombatIdle");
     this.dummy?.controller.play("CombatIdle");
+    this.queueHostMatchPhasePublish(snap);
   }
 
   /** Between rounds after a ring-out (best-of-3 continues). */
   beginNextRound(): boolean {
+    if (this.matchCombatActive && !this.matchIsHost) {
+      // Guest waits for host Intro via match_phase; clear local freeze only.
+      this.matchFrozen = false;
+      this.combatWinnerHex = null;
+      this.lastCombatOutcome = null;
+      this.lastMissReason = null;
+      this.regroupTarget = null;
+      this.clearLungeState();
+      this.playerInvulnUntil = 0;
+      this.dummyInvulnUntil = 0;
+      this.localStunUntil = 0;
+      this.setLocalBodyOpaque(false);
+      const snap = this.matchPhase.parkForRemoteSync();
+      this.playerCombatX = snap.playerX;
+      this.dummyCombatX = snap.dummyX;
+      this.applyCombatSeats();
+      this.rebindWeaponAfterSeatChange();
+      return true;
+    }
     const snap = this.matchPhase.startNextRound();
     if (!snap) return false;
     this.matchFrozen = false;
@@ -657,6 +692,7 @@ export class BabylonGame {
     this.rebindWeaponAfterSeatChange();
     this.player?.controller.play("CombatIdle");
     this.dummy?.controller.play("CombatIdle");
+    this.queueHostMatchPhasePublish(snap);
     return true;
   }
 
@@ -706,7 +742,10 @@ export class BabylonGame {
       this.dummyOnSoftEdge = false;
       this.lastResolvedSlashKey = "";
       this.lastAppliedOutcomeSeq = -1;
+      this.lastAppliedMatchPhaseSeq = -1;
+      this.matchPhasePublishSeq = 0;
       this.pendingHostCombatOutcome = null;
+      this.pendingHostMatchPhase = null;
       this.clearLungeState();
       this.duelSessionActive = false;
       this.matchPhase.resetIdle();
@@ -739,6 +778,79 @@ export class BabylonGame {
     const pending = this.pendingHostCombatOutcome;
     this.pendingHostCombatOutcome = null;
     return pending;
+  }
+
+  /** Drain host match-phase snapshot for Spacetime publish. */
+  consumePendingHostMatchPhase(): MatchPhaseNetworkEvent | null {
+    const pending = this.pendingHostMatchPhase;
+    this.pendingHostMatchPhase = null;
+    return pending;
+  }
+
+  /**
+   * Guest: apply host-authoritative phase + host-frame seats (mirrored locally).
+   */
+  applyRemoteMatchPhase(event: MatchPhaseNetworkEvent): void {
+    if (!this.matchCombatActive || this.matchIsHost) return;
+    if (event.seq <= this.lastAppliedMatchPhaseSeq) return;
+    this.lastAppliedMatchPhaseSeq = event.seq;
+    const localSeats = mapHostSeatsToLocalView(false, {
+      playerX: event.playerRootX,
+      dummyX: event.dummyRootX,
+    });
+    this.matchPhase.applyAuthoritative({
+      phase: event.phase,
+      countdownLabel: event.countdownLabel,
+      roundIndex: event.roundIndex,
+      p1Wins: event.p1Wins,
+      p2Wins: event.p2Wins,
+      matchWinner: event.matchWinner,
+      playerX: localSeats.playerX,
+      dummyX: localSeats.dummyX,
+    });
+    this.playerCombatX = localSeats.playerX;
+    this.dummyCombatX = localSeats.dummyX;
+    this.applyCombatSeats();
+    if (
+      event.phase === "WalkIn" ||
+      event.phase === "Fighting" ||
+      event.phase === "Intro" ||
+      event.phase === "Countdown"
+    ) {
+      this.rebindWeaponAfterSeatChange();
+    }
+    if (event.phase === "RoundEnd" || event.phase === "MatchEnd") {
+      this.matchFrozen = true;
+    } else if (event.phase === "Intro" || event.phase === "Countdown" || event.phase === "WalkIn") {
+      this.matchFrozen = false;
+    }
+  }
+
+  private queueHostMatchPhasePublish(snap: {
+    phase: MatchPhase;
+    countdownLabel: string | null;
+    roundIndex: number;
+    p1Wins: number;
+    p2Wins: number;
+    matchWinner: "p1" | "p2" | null;
+    playerX: number;
+    dummyX: number;
+  }): void {
+    if (!this.matchCombatActive || !this.matchIsHost) return;
+    this.matchPhasePublishSeq += 1;
+    this.lastHostMatchPhasePublishAt = performance.now();
+    this.pendingHostMatchPhase = {
+      roomCode: "",
+      seq: this.matchPhasePublishSeq,
+      phase: snap.phase,
+      countdownLabel: snap.countdownLabel as MatchPhaseNetworkEvent["countdownLabel"],
+      roundIndex: snap.roundIndex,
+      p1Wins: snap.p1Wins,
+      p2Wins: snap.p2Wins,
+      matchWinner: snap.matchWinner,
+      playerRootX: snap.playerX,
+      dummyRootX: snap.dummyX,
+    };
   }
 
   getLocalCombatIntent(): CombatIntentPublish {
@@ -1011,20 +1123,42 @@ export class BabylonGame {
     this.lastMissReason = "no_contact";
   }
 
+  /**
+   * Solo / host authority seats are already local-view.
+   * Guests must mirror host-frame outcome seats onto local-left / remote-right.
+   */
+  private seatsUseHostFrame(): boolean {
+    return !this.matchCombatActive || this.matchIsHost;
+  }
+
   applyCombatOutcome(outcome: CombatOutcomeEvent): void {
     if (outcome.seq <= this.lastAppliedOutcomeSeq) return;
     this.lastAppliedOutcomeSeq = outcome.seq;
     this.lastCombatOutcome = outcome.kind;
-    this.playerOnSoftEdge = Math.abs(outcome.playerRootX) >= ARENA_RADIUS - 0.05;
-    this.dummyOnSoftEdge = Math.abs(outcome.dummyRootX) >= ARENA_RADIUS - 0.05;
+
+    const isHostView = this.seatsUseHostFrame();
+    const localSeats = mapHostSeatsToLocalView(isHostView, {
+      playerX: outcome.playerRootX,
+      dummyX: outcome.dummyRootX,
+    });
+    const soft = mapHostSoftEdgeToLocalView(isHostView, {
+      playerOnSoftEdge: Math.abs(outcome.playerRootX) >= ARENA_RADIUS - 0.05,
+      dummyOnSoftEdge: Math.abs(outcome.dummyRootX) >= ARENA_RADIUS - 0.05,
+    });
+    this.playerOnSoftEdge = soft.playerOnSoftEdge;
+    this.dummyOnSoftEdge = soft.dummyOnSoftEdge;
 
     const now = performance.now();
     if (this.player) {
-      this.playerCombatX = outcome.playerRootX;
+      this.playerCombatX = localSeats.playerX;
     }
     if (this.dummy) {
-      this.dummyCombatX = outcome.dummyRootX;
+      this.dummyCombatX = localSeats.dummyX;
     }
+    // Seat jump cancels in-flight lunges' origin so recover does not snap back
+    // to pre-knockback world X under the mirrored guest frame.
+    this.lungeOriginX = this.playerCombatX;
+    this.remoteLungeOriginX = this.dummyCombatX;
     this.applyCombatSeats();
 
     const localIsActor =
@@ -1054,10 +1188,7 @@ export class BabylonGame {
         this.setLocalBodyOpaque(true);
       }
       this.regroupTarget = regroupTargets(
-        {
-          playerX: outcome.playerRootX,
-          dummyX: outcome.dummyRootX,
-        },
+        localSeats,
         localIsActor || outcome.actorIdentityHex === "local",
       );
       this.rebindWeaponAfterSeatChange();
@@ -1079,13 +1210,7 @@ export class BabylonGame {
         this.dummy?.controller.play("AdvanceAfterHit");
       }, 200);
       // Clash: treat local as attacker for reseat (keep remote/dummy X).
-      this.regroupTarget = regroupTargets(
-        {
-          playerX: outcome.playerRootX,
-          dummyX: outcome.dummyRootX,
-        },
-        true,
-      );
+      this.regroupTarget = regroupTargets(localSeats, true);
       this.rebindWeaponAfterSeatChange();
     } else if (outcome.kind === "blocked") {
       if (localIsActor) {
@@ -1097,7 +1222,8 @@ export class BabylonGame {
         this.remoteLungeRecovering = false;
         this.player?.controller.play("BlockedStun");
         this.localStunUntil = now + BLOCK_ATTACKER_STUN_SECONDS * 1000;
-        this.playerInvulnUntil = now + BLOCK_ATTACKER_STUN_SECONDS * 1000;
+        // Short i-frames only — full-window invuln blocked retaliation.
+        this.playerInvulnUntil = now + HIT_INVULN_MS;
         this.setLocalBodyOpaque(true);
         this.dummy?.controller.play("BlockIdle");
       } else {
@@ -1108,13 +1234,16 @@ export class BabylonGame {
         this.lungeActive = false;
         this.lungeRecovering = false;
         this.dummy?.controller.play("BlockedStun");
-        this.player?.controller.play("BlockIdle");
+        // Keep BlockIdle only while still holding block; otherwise clear stuck clip.
+        if (this.phoneBlocking) {
+          this.player?.controller.play("BlockIdle");
+        } else {
+          this.clearBlockAnimation();
+          this.player?.controller.play("CombatIdle");
+        }
       }
       this.regroupTarget = regroupTargets(
-        {
-          playerX: outcome.playerRootX,
-          dummyX: outcome.dummyRootX,
-        },
+        localSeats,
         localIsActor || outcome.actorIdentityHex === "local",
       );
       this.rebindWeaponAfterSeatChange();
@@ -1127,15 +1256,12 @@ export class BabylonGame {
         outcome.winnerIdentityHex === this.localIdentityHex ||
         outcome.winnerIdentityHex === "local";
       if (this.duelSessionActive) {
-        const winnerSeat: "p1" | "p2" =
-          this.matchCombatActive && !this.matchIsHost
-            ? localWon
-              ? "p2"
-              : "p1"
-            : localWon
-              ? "p1"
-              : "p2";
-        this.matchPhase.onRingOut(winnerSeat);
+        // Guests take round score from host match_phase; avoid double-counting.
+        if (!(this.matchCombatActive && !this.matchIsHost)) {
+          const winnerSeat: "p1" | "p2" = localWon ? "p1" : "p2";
+          const ring = this.matchPhase.onRingOut(winnerSeat);
+          this.queueHostMatchPhasePublish(ring.snapshot);
+        }
       }
       if (localWon) {
         this.player?.controller.play("CombatIdle");
@@ -1144,6 +1270,7 @@ export class BabylonGame {
         this.dummy?.controller.play("CombatIdle");
         this.player?.controller.play("HitKnockback");
       }
+      this.rebindWeaponAfterSeatChange();
     }
   }
 
@@ -1183,6 +1310,8 @@ export class BabylonGame {
   private rebindWeaponAfterSeatChange(): void {
     this.applyCombatSeats();
     this.refreshWeaponTipForCombatSeats();
+    // Same-frame remote remap so the foe blade does not freeze in pre-KB world.
+    this.updateRemoteWeaponTarget(0);
   }
 
   /** Reset seats / freeze after solo ring-out so the dummy duel can restart. */
@@ -2645,13 +2774,31 @@ export class BabylonGame {
     this.status.motion.reachFraction = this.reachFraction;
 
     if (this.duelSessionActive && !this.matchFrozen) {
-      const phaseSnap = this.matchPhase.tick(dt);
-      if (phaseSnap) {
-        this.playerCombatX = phaseSnap.playerX;
-        this.dummyCombatX = phaseSnap.dummyX;
-        this.applyCombatSeats();
-        if (phaseSnap.phase === "WalkIn" || phaseSnap.phase === "Fighting") {
-          this.rebindWeaponAfterSeatChange();
+      // Guests follow host match_phase; only host/solo tick the local machine.
+      if (this.matchCombatActive && !this.matchIsHost) {
+        // Seats/phase applied via applyRemoteMatchPhase.
+      } else {
+        const phaseSnap = this.matchPhase.tick(dt);
+        if (phaseSnap) {
+          this.playerCombatX = phaseSnap.playerX;
+          this.dummyCombatX = phaseSnap.dummyX;
+          this.applyCombatSeats();
+          if (phaseSnap.phase === "WalkIn" || phaseSnap.phase === "Fighting") {
+            this.rebindWeaponAfterSeatChange();
+          }
+          this.queueHostMatchPhasePublish(phaseSnap);
+        } else if (
+          this.matchCombatActive &&
+          this.matchIsHost &&
+          this.matchPhase.phase === "Fighting" &&
+          performance.now() - this.lastHostMatchPhasePublishAt > 400
+        ) {
+          // Low-rate Fighting heartbeat so late guests unlock combatOpen.
+          this.queueHostMatchPhasePublish({
+            ...this.matchPhase.hud(),
+            playerX: this.playerCombatX,
+            dummyX: this.dummyCombatX,
+          });
         }
       }
     }
@@ -2940,15 +3087,18 @@ export class BabylonGame {
   /**
    * Publisher writes GripPrimary in their local-player world frame. Each client
    * views itself on the left seat, so remap into the right-hand dummy seat.
+   * Publisher authored root X is −dummyCombatX (not local playerX) so asymmetric
+   * knockback seats do not leave the tip parked in the opponent's back.
    */
   private mapPublisherPlayerPoseToLocalDummy(
     position: Vector3,
     rotation: Quaternion,
   ): { position: Vector3; rotation: Quaternion } {
+    const publisherRootX = publisherAuthoredRootX(this.dummyCombatX);
     const publisherRoot = Matrix.Compose(
       Vector3.One(),
       Quaternion.RotationAxis(Vector3.Up(), LOCAL_PLAYER_ROTATION_Y),
-      new Vector3(this.playerCombatX, 0, 0),
+      new Vector3(publisherRootX, 0, 0),
     );
     const localDummyRoot = Matrix.Compose(
       Vector3.One(),

@@ -21,7 +21,7 @@ export const REGROUP_SECONDS = 0.35;
 /** Hit / clash local stun (camera pull + opaque body when local is stunned). */
 export const STUN_SECONDS = 1.0;
 /** Blocked: attacker only; blocker stays free to retaliate. */
-export const BLOCK_ATTACKER_STUN_SECONDS = 1.5;
+export const BLOCK_ATTACKER_STUN_SECONDS = 2.5;
 /** Post-hit i-frames (ms) — short enough to chain connects, long enough to stop same-swing spam. */
 export const HIT_INVULN_MS = 150;
 

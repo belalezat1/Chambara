@@ -256,6 +256,10 @@ function DesktopApp(): ReactElement {
         gameRef.current?.applyCombatOutcome(outcome);
         if (gameRef.current) syncHitFeedbackFromGame(gameRef.current);
       },
+      onMatchPhase: (phase) => {
+        gameRef.current?.applyRemoteMatchPhase(phase);
+        if (gameRef.current) syncHitFeedbackFromGame(gameRef.current);
+      },
     });
     matchClientRef.current = client;
     setMatchEndpoint({ uri: client.getUri(), database: client.getDatabase() });
@@ -276,6 +280,8 @@ function DesktopApp(): ReactElement {
             applyCombatOutcomeToUi(resolved);
             game.applyCombatOutcome(resolved);
           }
+          const phase = game.consumePendingHostMatchPhase();
+          if (phase) match.publishMatchPhase(phase);
         }
       }
       // Solo dummy hits resolve inside BabylonGame.simulationStep (after lunge + tip refresh).

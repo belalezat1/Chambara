@@ -71,3 +71,43 @@ test("best of 3: first to ROUNDS_TO_WIN ends match", () => {
   assert.equal(m.phase, "MatchEnd");
   assert.equal(ROUNDS_TO_WIN, 2);
 });
+
+test("guest applyAuthoritative locks countdown to host without local tick", () => {
+  const host = new MatchPhaseMachine();
+  host.startMatch();
+  host.tick(0.4);
+  host.tick(COUNTDOWN_BEAT_SECONDS);
+  assert.equal(host.countdownLabel, "2");
+
+  const guest = new MatchPhaseMachine();
+  guest.parkForRemoteSync();
+  assert.equal(guest.phase, "Intro");
+  assert.equal(guest.countdownLabel, null);
+
+  const applied = guest.applyAuthoritative({
+    phase: host.phase,
+    countdownLabel: host.countdownLabel,
+    roundIndex: host.roundIndex,
+    p1Wins: host.p1Wins,
+    p2Wins: host.p2Wins,
+    matchWinner: host.matchWinner,
+    playerX: -INTRO_OUTSIDE_HALF,
+    dummyX: INTRO_OUTSIDE_HALF,
+  });
+  assert.equal(applied.phase, "Countdown");
+  assert.equal(applied.countdownLabel, "2");
+  assert.equal(guest.combatOpen, false);
+
+  guest.applyAuthoritative({
+    phase: "Fighting",
+    countdownLabel: null,
+    roundIndex: 1,
+    p1Wins: 0,
+    p2Wins: 0,
+    matchWinner: null,
+    playerX: -SEAT_HALF_SPACING,
+    dummyX: SEAT_HALF_SPACING,
+  });
+  assert.equal(guest.phase, "Fighting");
+  assert.equal(guest.combatOpen, true);
+});

@@ -6,7 +6,8 @@ import {
   PRIMARY_GRIP_MESSAGE_TYPE,
   type PrimaryGripNetworkPose,
 } from "./PrimaryGripProtocol";
-import type { CombatOutcomeKind } from "../combat/CombatConstants";
+import type { CombatOutcomeKind, MatchPhase } from "../combat/CombatConstants";
+import type { CountdownLabel } from "../combat/MatchPhaseMachine";
 export type { PrimaryGripNetworkPose } from "./PrimaryGripProtocol";
 
 export type MatchClientStatus = {
@@ -37,6 +38,19 @@ export type CombatOutcomeEvent = {
   winnerIdentityHex: string | null;
 };
 
+export type MatchPhaseNetworkEvent = {
+  roomCode: string;
+  seq: number;
+  phase: MatchPhase;
+  countdownLabel: CountdownLabel;
+  roundIndex: number;
+  p1Wins: number;
+  p2Wins: number;
+  matchWinner: "p1" | "p2" | null;
+  playerRootX: number;
+  dummyRootX: number;
+};
+
 export type RemoteCombatIntent = {
   identityHex: string;
   blocking: boolean;
@@ -50,6 +64,7 @@ export type MatchClientListeners = {
   onRemotePose: (pose: PrimaryGripNetworkPose | null) => void;
   onCombatOutcome?: (outcome: CombatOutcomeEvent) => void;
   onCombatIntent?: (intent: RemoteCombatIntent) => void;
+  onMatchPhase?: (phase: MatchPhaseNetworkEvent) => void;
 };
 
 const TOKEN_KEY = "chambara.spacetimedb.token";
@@ -104,6 +119,7 @@ export class SpacetimeMatchClient {
   private lastPublishAt = 0;
   private lastIntentAt = 0;
   private lastOutcomeSeq = -1;
+  private lastMatchPhaseSeq = -1;
   private readonly identityByHex = new Map<string, Identity>();
 
   constructor(listeners: MatchClientListeners, uri = defaultUri(), database = defaultDatabase()) {
@@ -147,6 +163,7 @@ export class SpacetimeMatchClient {
     if (!this.conn) return;
     this.roomCode = roomCode;
     this.lastOutcomeSeq = -1;
+    this.lastMatchPhaseSeq = -1;
     this.setStatus({ roomCode, error: "", connection: "connected" });
     try {
       this.conn.reducers.createOrJoinMatch({ roomCode }).catch((error: unknown) => {
@@ -172,6 +189,7 @@ export class SpacetimeMatchClient {
     }
     this.roomCode = "";
     this.lastOutcomeSeq = -1;
+    this.lastMatchPhaseSeq = -1;
     this.listeners.onRemotePose(null);
     this.setStatus({
       roomCode: "",
@@ -241,6 +259,25 @@ export class SpacetimeMatchClient {
     }
   }
 
+  publishMatchPhase(phase: Omit<MatchPhaseNetworkEvent, "roomCode"> & { roomCode?: string }): void {
+    if (!this.conn || !this.roomCode || !this.status.isHost) return;
+    try {
+      this.conn.reducers.publishMatchPhase({
+        seq: phase.seq,
+        phase: phase.phase,
+        countdownLabel: phase.countdownLabel ?? "",
+        roundIndex: phase.roundIndex,
+        p1Wins: phase.p1Wins,
+        p2Wins: phase.p2Wins,
+        matchWinner: phase.matchWinner ?? "",
+        playerRootX: phase.playerRootX,
+        dummyRootX: phase.dummyRootX,
+      }).catch(() => undefined);
+    } catch {
+      // ignore — reducer may be absent until module republish
+    }
+  }
+
   disconnect(): void {
     this.leave();
     this.conn?.disconnect();
@@ -285,12 +322,15 @@ export class SpacetimeMatchClient {
           conn.db.combatIntent.onUpdate((_ctx, _old, row) => this.handleIntentRow(row));
           conn.db.combatOutcome.onInsert((_ctx, row) => this.handleOutcomeRow(row));
           conn.db.combatOutcome.onUpdate((_ctx, _old, row) => this.handleOutcomeRow(row));
+          conn.db.matchPhase.onInsert((_ctx, row) => this.handleMatchPhaseRow(row));
+          conn.db.matchPhase.onUpdate((_ctx, _old, row) => this.handleMatchPhaseRow(row));
           conn.subscriptionBuilder().subscribe([
             tables.match,
             tables.matchPlayer,
             tables.swordPose,
             tables.combatIntent,
             tables.combatOutcome,
+            tables.matchPhase,
           ]);
           if (!settled) {
             settled = true;
@@ -391,6 +431,44 @@ export class SpacetimeMatchClient {
       playerRootX: row.playerRootX,
       dummyRootX: row.dummyRootX,
       winnerIdentityHex: optionalIdentityHex(row.winnerIdentity),
+    });
+  }
+
+  private handleMatchPhaseRow(raw: unknown): void {
+    const row = raw as {
+      roomCode: string;
+      seq: number;
+      phase: string;
+      countdownLabel: string;
+      roundIndex: number;
+      p1Wins: number;
+      p2Wins: number;
+      matchWinner: string;
+      playerRootX: number;
+      dummyRootX: number;
+    };
+    if (!row || (this.roomCode && row.roomCode !== this.roomCode)) return;
+    if (row.seq <= this.lastMatchPhaseSeq) return;
+    this.lastMatchPhaseSeq = row.seq;
+    const phase = row.phase as MatchPhase;
+    const labelRaw = row.countdownLabel;
+    const countdownLabel =
+      labelRaw === "3" || labelRaw === "2" || labelRaw === "1" || labelRaw === "FIGHT"
+        ? labelRaw
+        : null;
+    const matchWinner =
+      row.matchWinner === "p1" || row.matchWinner === "p2" ? row.matchWinner : null;
+    this.listeners.onMatchPhase?.({
+      roomCode: row.roomCode,
+      seq: row.seq,
+      phase,
+      countdownLabel,
+      roundIndex: row.roundIndex,
+      p1Wins: row.p1Wins,
+      p2Wins: row.p2Wins,
+      matchWinner,
+      playerRootX: row.playerRootX,
+      dummyRootX: row.dummyRootX,
     });
   }
 
