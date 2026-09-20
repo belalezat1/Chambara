@@ -159,7 +159,15 @@ export class SpacetimeMatchClient {
     this.seat = requestedSeat;
     combatDebug("match.join", { roomCode });
     this.lastOutcomeSeq = -1;
-    this.setStatus({ roomCode, error: "", connection: "connected" });
+    // Optimistic seat: room is active for this client even before the
+    // subscription cache has the match_player row (avoids sticky 0/2).
+    this.setStatus({
+      roomCode,
+      error: "",
+      connection: "connected",
+      playerCount: Math.max(1, this.status.playerCount),
+      isHost: requestedSeat === "host" ? true : this.status.isHost,
+    });
     try {
       await this.conn.reducers.createOrJoinMatch({ roomCode });
     } catch (error) {
@@ -555,9 +563,21 @@ export class SpacetimeMatchClient {
       });
       return;
     }
-    const players = [...this.conn.db.matchPlayer.iter()].filter(
-      (player) => player.roomCode === this.roomCode,
-    );
+    let iterError: string | null = null;
+    let rawIterCount = 0;
+    let players: Array<{ identity: Identity; roomCode: string; ready?: boolean }> = [];
+    try {
+      const all = [...this.conn.db.matchPlayer.iter()];
+      rawIterCount = all.length;
+      players = all.filter((player) => player.roomCode === this.roomCode).map((player) => ({
+        identity: player.identity,
+        roomCode: player.roomCode,
+        // Maincloud may not have additive `ready` yet — never require it to decode rows.
+        ready: (player as { ready?: boolean }).ready,
+      }));
+    } catch (error) {
+      iterError = error instanceof Error ? error.message : String(error);
+    }
     for (const player of players) {
       this.identityByHex.set(player.identity.toHexString(), player.identity);
     }
@@ -575,6 +595,7 @@ export class SpacetimeMatchClient {
     const guestPlayer = hostIdentity
       ? players.find((player) => !player.identity.equals(hostIdentity))
       : undefined;
+    const nextCount = players.length || (this.roomCode ? 1 : 0);
     if (
       players.length !== this.status.playerCount ||
       opponentConnected !== this.status.opponentConnected
@@ -591,7 +612,7 @@ export class SpacetimeMatchClient {
       // the players even if the subscription cache has not delivered its row
       // yet. Use that local knowledge while waiting for the authoritative
       // snapshot, then replace it with the replicated count below.
-      playerCount: players.length || (this.roomCode ? 1 : 0),
+      playerCount: nextCount,
       opponentConnected,
       isHost: matchRow
         ? matchRow.hostIdentity.equals(this.identity)

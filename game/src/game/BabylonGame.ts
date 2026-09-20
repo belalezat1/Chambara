@@ -43,6 +43,7 @@ import {
 import { AnimationController, type AnimationPlayOptions } from "./animation/AnimationController";
 import {
   ARENA_RADIUS,
+  BLOCK_ATTACKER_STUN_SECONDS,
   HIT_INVULN_MS,
   SEAT_HALF_SPACING,
   STUN_SECONDS,
@@ -1023,24 +1024,28 @@ export class BabylonGame {
       );
     } else if (outcome.kind === "blocked") {
       if (localIsActor) {
+        // Local is the attacker who hit a block — stun only the attacker.
         this.lungeHitConnected = true;
         this.lungeActive = false;
         this.lungeRecovering = false;
         this.remoteLungeActive = false;
         this.remoteLungeRecovering = false;
         this.player?.controller.play("BlockedStun");
-        this.localStunUntil = now + STUN_SECONDS * 1000;
-        this.playerInvulnUntil = now + STUN_SECONDS * 1000;
+        this.localStunUntil = now + BLOCK_ATTACKER_STUN_SECONDS * 1000;
+        // Do NOT grant full-duration invuln — blocker must be able to retaliate.
         this.dummy?.controller.play("BlockIdle");
       } else {
+        // Local is the blocker — never stunned, free to retaliate after releasing guard.
         this.remoteLungeHitConnected = true;
         this.remoteLungeActive = false;
         this.remoteLungeRecovering = false;
         this.lungeActive = false;
         this.lungeRecovering = false;
         this.dummy?.controller.play("BlockedStun");
-        this.dummyInvulnUntil = now + STUN_SECONDS * 1000;
-        this.player?.controller.play("BlockIdle");
+        // Keep block anim bookkeeping so clearBlockAnimation can exit cleanly.
+        if (this.playAnimation("BlockIdle", { speed: BabylonGame.BLOCK_CLIP_SPEED })) {
+          this.lastBlockAnimation = "BlockIdle";
+        }
       }
       this.regroupTarget = regroupTargets(
         localSeats,

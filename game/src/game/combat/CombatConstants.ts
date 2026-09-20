@@ -8,7 +8,13 @@ export const KNOCKBACK_M = 0.28;
 /** Keep pace with knockback so spacing does not open after each connect. */
 export const ADVANCE_M = 0.28;
 export const REGROUP_SECONDS = 0.35;
+/** Hit / clash local stun (slash lock). */
 export const STUN_SECONDS = 0.5;
+/**
+ * Blocked: attacker only — long enough for the blocker to retaliate.
+ * Blocker must never receive this stun.
+ */
+export const BLOCK_ATTACKER_STUN_SECONDS = 2.5;
 /** Post-hit i-frames (ms) — short enough to chain connects, long enough to stop same-swing spam. */
 export const HIT_INVULN_MS = 150;
 
