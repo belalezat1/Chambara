@@ -156,25 +156,39 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
       <div className="ui-lobby-waiting ui-lobby-found" aria-label="Lobby found">
         <div className={"ui-lobby-slot ui-lobby-host-slot" + (hostPresent ? " is-present" : "")}>
           {hostPresent ? (
-            <img src="/ui/lobby_found/girl_vs.gif" alt="Lobby host present" draggable={false} />
+            <img
+              className="ui-lobby-player-art"
+              src="/ui/lobby_found/girl_vs.gif"
+              alt="Lobby host present"
+              draggable={false}
+            />
           ) : null}
           {hostReady && (
-            <span className="ui-lobby-ready-marker is-ready" aria-label="Host is ready">
-              <span className="ui-lobby-ready-dot" aria-hidden="true" />
-              READY
-            </span>
+            <img
+              className="ui-lobby-ready-art"
+              src="/ui/ready.png"
+              alt="Host is ready"
+              draggable={false}
+            />
           )}
         </div>
 
         <div className={"ui-lobby-slot ui-lobby-opponent-slot" + (opponentPresent ? " is-present" : "")}>
           {opponentPresent ? (
-            <img src="/ui/lobby_found/versus_bg.gif" alt="Opponent present" draggable={false} />
+            <img
+              className="ui-lobby-player-art"
+              src="/ui/lobby_found/versus_bg.gif"
+              alt="Opponent present"
+              draggable={false}
+            />
           ) : null}
           {opponentPresent && guestReady && (
-            <span className="ui-lobby-ready-marker is-ready" aria-label="Opponent is ready">
-              <span className="ui-lobby-ready-dot" aria-hidden="true" />
-              READY
-            </span>
+            <img
+              className="ui-lobby-ready-art"
+              src="/ui/ready.png"
+              alt="Opponent is ready"
+              draggable={false}
+            />
           )}
         </div>
 

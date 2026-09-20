@@ -45,6 +45,7 @@ export const MatchPlayer = __t.object("MatchPlayer", {
   identity: __t.identity(),
   roomCode: __t.string(),
   joinedMs: __t.u64(),
+  ready: __t.bool(),
 });
 export type MatchPlayer = __Infer<typeof MatchPlayer>;
 

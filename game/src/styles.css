@@ -612,6 +612,16 @@ h2 { margin-top: 6px; font-size: 21px; letter-spacing: -0.03em; }
   box-shadow: 0 7px 0 rgb(0 0 0 / 12%);
   overflow: visible;
 }
+.ui-lobby-host-slot::before {
+  position: absolute;
+  z-index: 0;
+  top: -10%;
+  right: 0;
+  width: 100%;
+  height: 20%;
+  content: "";
+  background: #fff;
+}
 .ui-lobby-opponent-slot {
   top: -11.5%;
   left: 70.5%;
@@ -620,7 +630,7 @@ h2 { margin-top: 6px; font-size: 21px; letter-spacing: -0.03em; }
   background: #000;
   box-shadow: -7px 0 0 rgb(0 0 0 / 18%);
 }
-.ui-lobby-slot > img {
+.ui-lobby-player-art {
   display: block;
   width: 100%;
   height: 100%;
@@ -628,70 +638,47 @@ h2 { margin-top: 6px; font-size: 21px; letter-spacing: -0.03em; }
   image-rendering: pixelated;
   user-select: none;
 }
-.ui-lobby-host-slot > img {
+.ui-lobby-host-slot > .ui-lobby-player-art {
   position: absolute;
   z-index: 1;
-  top: -10%;
+  top: 0;
   right: 0;
   left: auto;
   width: 58%;
-  height: 110%;
+  height: 100%;
   object-fit: fill;
 }
-.ui-lobby-opponent-slot > img {
+.ui-lobby-opponent-slot > .ui-lobby-player-art {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 355%;
-  height: 50%;
+  top: 81%;
+  left: 25%;
+  width: 190%;
+  height: 27%;
   max-width: none;
   object-fit: fill;
   clip-path: inset(0 0 50% 0);
   transform: translate(-50%, -50%) rotate(90deg);
 }
-.ui-lobby-ready-marker {
+.ui-lobby-ready-art {
   position: absolute;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: rgb(0 0 0 / 25%);
-  font-family: "Born2BSporty", "Space Grotesk", sans-serif;
-  font-size: clamp(14px, 2vw, 28px);
-  letter-spacing: 0.08em;
-  line-height: 1;
-  text-shadow: 2px 2px 0 rgb(255 255 255 / 35%);
+  display: block;
+  width: clamp(112px, 13vw, 160px);
+  height: auto;
+  image-rendering: pixelated;
+  pointer-events: none;
+  user-select: none;
 }
-.ui-lobby-host-slot .ui-lobby-ready-marker {
+.ui-lobby-host-slot .ui-lobby-ready-art {
   top: 50%;
-  left: 8%;
+  left: 7%;
   transform: translateY(-50%);
 }
-.ui-lobby-opponent-slot .ui-lobby-ready-marker {
-  top: 24%;
+.ui-lobby-opponent-slot .ui-lobby-ready-art {
+  top: 31%;
   left: 50%;
-  color: rgb(255 255 255 / 28%);
-  text-shadow: 2px 2px 0 rgb(0 0 0 / 55%);
+  width: clamp(112px, 14vw, 170px);
   transform: translate(-50%, -50%) rotate(-90deg);
-  white-space: nowrap;
-}
-.ui-lobby-ready-marker.is-ready {
-  color: #fff21f;
-  text-shadow: 3px 3px 0 #5d4800, 0 0 18px rgb(255 242 31 / 55%);
-}
-.ui-lobby-ready-dot {
-  display: block;
-  width: clamp(10px, 1.7vw, 22px);
-  height: clamp(10px, 1.7vw, 22px);
-  border: 3px solid currentColor;
-  border-radius: 50%;
-  opacity: 0.45;
-}
-.ui-lobby-ready-marker.is-ready .ui-lobby-ready-dot {
-  border-color: #fff21f;
-  background: #fff21f;
-  box-shadow: 0 0 14px rgb(255 242 31 / 80%);
-  opacity: 1;
 }
 .ui-lobby-found-center {
   position: absolute;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import QRCode from "qrcode";
 
@@ -74,6 +74,7 @@ function formatDegrees(value: number | null): string {
 export default function GameScreen({ launch }: { launch: GameLaunch }): ReactElement {
   const { navigateToScreen } = useScreenNavigation();
   const session = useMatchSession();
+  const launchRoomCode = launch.mode === "match" ? launch.roomCode : null;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<BabylonGame | null>(null);
   const [status, setStatus] = useState<RuntimeStatus>(createInitialRuntimeStatus);
@@ -86,6 +87,14 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
   const [copyLabel, setCopyLabel] = useState("Copy controller link");
   const [matchCode, setMatchCode] = useState("");
   const matchStatus: MatchClientStatus = session.status;
+  const matchStatusRef = useRef(matchStatus);
+  matchStatusRef.current = matchStatus;
+  const subscribeToSession = session.subscribe;
+  const joinSessionMatch = session.joinMatch;
+  const publishPose = session.publishPose;
+  const publishCombatIntent = session.publishCombatIntent;
+  const publishCombatOutcome = session.publishCombatOutcome;
+  const getOpponentIdentityHex = session.getOpponentIdentityHex;
   const [lastCombatOutcome, setLastCombatOutcome] = useState<CombatOutcomeKind | null>(null);
   const [lastMissReason, setLastMissReason] = useState<string | null>(null);
   const [combatWinnerHex, setCombatWinnerHex] = useState<string | null>(null);
@@ -150,15 +159,15 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
     gameRef.current?.setMotionRelayStatus(relayStatus);
   }, [relayStatus]);
 
-  const applyCombatOutcomeToUi = (outcome: CombatOutcomeEvent) => {
+  const applyCombatOutcomeToUi = useCallback((outcome: CombatOutcomeEvent) => {
     setLastCombatOutcome(outcome.kind);
     if (outcome.kind === "ringout") {
       setCombatFrozen(true);
       setCombatWinnerHex(outcome.winnerIdentityHex);
     }
-  };
+  }, []);
 
-  const syncHitFeedbackFromGame = (game: BabylonGame) => {
+  const syncHitFeedbackFromGame = useCallback((game: BabylonGame) => {
     const hud = game.getCombatHud();
     setLastMissReason(hud.lastMissReason);
     setSeatHud(game.getCombatSeats());
@@ -173,9 +182,9 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
       setCombatFrozen(true);
       setCombatWinnerHex(hud.winnerHex);
     }
-  };
+  }, []);
 
-  useEffect(() => session.subscribe((event) => {
+  useEffect(() => subscribeToSession((event) => {
     if (event.type === "phoneSample") {
       if (simulatedMotionRef.current) {
         simulatedMotionRef.current = false;
@@ -193,27 +202,27 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
       gameRef.current?.applyCombatOutcome(event.outcome);
       if (gameRef.current) syncHitFeedbackFromGame(gameRef.current);
     }
-  }), [session]);
+  }), [applyCombatOutcomeToUi, subscribeToSession, syncHitFeedbackFromGame]);
 
   useEffect(() => {
-    if (launch.mode === "match" && launch.roomCode && session.status.roomCode !== launch.roomCode) {
-      void session.joinMatch(launch.roomCode);
+    if (launchRoomCode && matchStatus.roomCode !== launchRoomCode) {
+      void joinSessionMatch(launchRoomCode);
     }
-  }, [launch, session]);
+  }, [joinSessionMatch, launchRoomCode, matchStatus.roomCode]);
 
   useEffect(() => {
     const publishTimer = window.setInterval(() => {
       const game = gameRef.current;
       if (!game) return;
       const pose = game.getLocalSwordNetworkPose();
-      if (pose) session.publishPose(pose);
-      const matchStatusNow = session.status;
+      if (pose) publishPose(pose);
+      const matchStatusNow = matchStatusRef.current;
       if (matchStatusNow.opponentConnected && matchStatusNow.roomCode) {
-        session.publishCombatIntent(game.getLocalCombatIntent());
+        publishCombatIntent(game.getLocalCombatIntent());
         if (matchStatusNow.isHost) {
           const resolved = game.consumePendingHostCombatOutcome();
           if (resolved) {
-            session.publishCombatOutcome(resolved);
+            publishCombatOutcome(resolved);
             applyCombatOutcomeToUi(resolved);
             game.applyCombatOutcome(resolved);
           }
@@ -222,11 +231,11 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
       syncHitFeedbackFromGame(game);
     }, 1000 / 60);
     return () => window.clearInterval(publishTimer);
-  }, [session]);
+  }, [applyCombatOutcomeToUi, publishCombatIntent, publishCombatOutcome, publishPose, syncHitFeedbackFromGame]);
 
   useEffect(() => {
     const remoteHex = matchStatus.opponentConnected
-      ? session.getOpponentIdentityHex()
+      ? getOpponentIdentityHex()
       : null;
     gameRef.current?.setMatchCombatSession({
       active: Boolean(matchStatus.roomCode && matchStatus.opponentConnected),
@@ -239,7 +248,7 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
       setCombatWinnerHex(null);
       setCombatFrozen(false);
     }
-  }, [session, 
+  }, [getOpponentIdentityHex,
     matchStatus.roomCode,
     matchStatus.isHost,
     matchStatus.identityHex,

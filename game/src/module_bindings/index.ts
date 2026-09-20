@@ -38,9 +38,9 @@ import CreateOrJoinMatchReducer from "./create_or_join_match_reducer";
 import LeaveMatchReducer from "./leave_match_reducer";
 import PublishCombatOutcomeReducer from "./publish_combat_outcome_reducer";
 import ResetMatchCombatReducer from "./reset_match_combat_reducer";
+import SetReadyReducer from "./set_ready_reducer";
 import UpdateSwordPoseReducer from "./update_sword_pose_reducer";
 import UpsertCombatIntentReducer from "./upsert_combat_intent_reducer";
-import SetReadyReducer from "./set_ready_reducer";
 
 // Import all procedure arg schemas
 
@@ -127,9 +127,9 @@ const reducersSchema = __reducers(
   __reducerSchema("leave_match", LeaveMatchReducer),
   __reducerSchema("publish_combat_outcome", PublishCombatOutcomeReducer),
   __reducerSchema("reset_match_combat", ResetMatchCombatReducer),
+  __reducerSchema("set_ready", SetReadyReducer),
   __reducerSchema("update_sword_pose", UpdateSwordPoseReducer),
   __reducerSchema("upsert_combat_intent", UpsertCombatIntentReducer),
-  __reducerSchema("set_ready", SetReadyReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
