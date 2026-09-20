@@ -34,6 +34,8 @@ export interface RelayStatus {
   room: string;
   connection: RelayConnectionState;
   peerConnected: boolean;
+  /** Host-side readiness reported by the paired phone. */
+  peerReady: boolean;
   streamState: RelayStreamState;
   samplesPerSecond: number;
   sessionGeneration: number | null;
@@ -166,6 +168,7 @@ export function createInitialRelayStatus(role: RelayRole, room: string): RelaySt
     room,
     connection: "idle",
     peerConnected: false,
+    peerReady: false,
     streamState: "idle",
     samplesPerSecond: 0,
     sessionGeneration: null,

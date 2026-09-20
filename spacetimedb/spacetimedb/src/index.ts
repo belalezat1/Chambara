@@ -24,6 +24,7 @@ const matchPlayer = table(
     identity: t.identity().primaryKey(),
     roomCode: t.string().index("btree"),
     joinedMs: t.u64(),
+    ready: t.bool().default(false),
   },
 );
 
@@ -135,6 +136,7 @@ export const createOrJoinMatch = spacetimedb.reducer(
       identity: ctx.sender,
       roomCode,
       joinedMs: ms,
+      ready: false,
     });
     ctx.db.swordPose.insert(emptyPose(ctx.sender, roomCode, ms));
   },
@@ -150,6 +152,15 @@ export const leaveMatch = spacetimedb.reducer((ctx) => {
     ctx.db.match.roomCode.delete(roomCode);
   }
 });
+
+export const setReady = spacetimedb.reducer(
+  { ready: t.bool() },
+  (ctx, { ready }) => {
+    const player = ctx.db.matchPlayer.identity.find(ctx.sender);
+    if (!player) throw new SenderError("Join a match before setting ready.");
+    ctx.db.matchPlayer.identity.update({ ...player, ready });
+  },
+);
 
 export const updateSwordPose = spacetimedb.reducer(
   {

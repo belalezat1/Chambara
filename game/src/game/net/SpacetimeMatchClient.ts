@@ -17,6 +17,8 @@ export type MatchClientStatus = {
   isHost: boolean;
   playerCount: number;
   opponentConnected: boolean;
+  hostReady: boolean;
+  guestReady: boolean;
   error: string;
 };
 
@@ -76,6 +78,8 @@ export function createInitialMatchStatus(): MatchClientStatus {
     isHost: false,
     playerCount: 0,
     opponentConnected: false,
+    hostReady: false,
+    guestReady: false,
     error: "",
   };
 }
@@ -100,6 +104,7 @@ export class SpacetimeMatchClient {
   private conn: DbConnection | null = null;
   private identity: Identity | null = null;
   private roomCode = "";
+  private seat: "host" | "guest" | null = null;
   private status = createInitialMatchStatus();
   private readonly listeners: MatchClientListeners;
   private readonly uri: string;
@@ -108,6 +113,8 @@ export class SpacetimeMatchClient {
   private lastIntentAt = 0;
   private lastOutcomeSeq = -1;
   private readonly identityByHex = new Map<string, Identity>();
+  private rosterRefreshTimers = new Set<number>();
+  private rosterRefreshGeneration = 0;
 
   constructor(listeners: MatchClientListeners, uri = defaultUri(), database = defaultDatabase()) {
     this.listeners = listeners;
@@ -132,15 +139,15 @@ export class SpacetimeMatchClient {
   }
 
   getOpponentIdentityHex(): string | null {
-    if (!this.conn || !this.identity) return null;
+    if (!this.conn || !this.identity || !this.roomCode) return null;
     for (const player of this.conn.db.matchPlayer.iter()) {
-      if (this.roomCode && player.roomCode !== this.roomCode) continue;
+      if (player.roomCode !== this.roomCode) continue;
       if (!player.identity.equals(this.identity)) return player.identity.toHexString();
     }
     return null;
   }
 
-  async join(rawRoom: string): Promise<void> {
+  async join(rawRoom: string, requestedSeat: "host" | "guest" = "guest"): Promise<void> {
     const roomCode = normalizeRoomCode(rawRoom);
     if (!roomCode) {
       this.setStatus({ error: "Enter a valid 6-character match code.", connection: "error" });
@@ -149,33 +156,50 @@ export class SpacetimeMatchClient {
     await this.ensureConnected();
     if (!this.conn) return;
     this.roomCode = roomCode;
+    this.seat = requestedSeat;
     combatDebug("match.join", { roomCode });
     this.lastOutcomeSeq = -1;
     this.setStatus({ roomCode, error: "", connection: "connected" });
     try {
-      this.conn.reducers.createOrJoinMatch({ roomCode }).catch((error: unknown) => {
-        this.setStatus({
-          error: error instanceof Error ? error.message : String(error),
-          connection: "error",
-        });
-      });
+      await this.conn.reducers.createOrJoinMatch({ roomCode });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Do not leave the UI in a fake active lobby when the reducer rejected
+      // the join (for example, a full room or an identity already in a room).
+      this.clearRosterRefreshSchedule();
+      this.roomCode = "";
+      this.seat = null;
+      this.lastOutcomeSeq = -1;
       this.setStatus({
-        error: error instanceof Error ? error.message : String(error),
+        roomCode: "",
+        isHost: false,
+        playerCount: 0,
+        opponentConnected: false,
+        hostReady: false,
+        guestReady: false,
+        error: message,
         connection: "error",
       });
+      throw error;
     }
     this.refreshRoster();
+    this.refreshCombatState();
+    // The reducer completes before the subscription cache necessarily has the
+    // inserted rows. Reconcile a few times so a guest does not remain at 0/2
+    // when the initial snapshot arrives just after the join call resolves.
+    this.scheduleRosterRefresh();
   }
 
   leave(): void {
     if (this.roomCode) combatDebug("match.leave", { roomCode: this.roomCode });
+    this.clearRosterRefreshSchedule();
     try {
       void this.conn?.reducers.leaveMatch({});
     } catch {
       // ignore
     }
     this.roomCode = "";
+    this.seat = null;
     this.lastOutcomeSeq = -1;
     this.listeners.onRemotePose(null);
     this.setStatus({
@@ -183,8 +207,24 @@ export class SpacetimeMatchClient {
       isHost: false,
       playerCount: 0,
       opponentConnected: false,
+      hostReady: false,
+      guestReady: false,
       error: "",
+      connection: "idle",
     });
+  }
+
+  setReady(ready: boolean): void {
+    if (!this.conn || !this.roomCode) return;
+    const reducers = this.conn.reducers as { setReady?: (args: { ready: boolean }) => Promise<void> };
+    if (typeof reducers.setReady !== "function") return;
+    try {
+      // Soft-fail when Maincloud has not published additive setReady yet — Lobby
+      // falls back to opponentConnected after a short wait.
+      reducers.setReady({ ready: Boolean(ready) }).catch(() => undefined);
+    } catch {
+      // ignore
+    }
   }
 
   publishPose(pose: PrimaryGripNetworkPose, now = performance.now()): void {
@@ -215,9 +255,9 @@ export class SpacetimeMatchClient {
         slashSeq: intent.slashSeq,
         guardX: intent.guardX,
         guardY: intent.guardY,
-      }).catch(() => undefined);
-    } catch {
-      // ignore
+      }).catch((error: unknown) => this.reportCombatPublishError("intent", error));
+    } catch (error) {
+      this.reportCombatPublishError("intent", error);
     }
   }
 
@@ -249,9 +289,9 @@ export class SpacetimeMatchClient {
         playerRootX: outcome.playerRootX,
         dummyRootX: outcome.dummyRootX,
         winnerIdentity: winnerIdentity ?? (undefined as never),
-      }).catch(() => undefined);
-    } catch {
-      // ignore
+      }).catch((error: unknown) => this.reportCombatPublishError("outcome", error));
+    } catch (error) {
+      this.reportCombatPublishError("outcome", error);
     }
   }
 
@@ -269,11 +309,21 @@ export class SpacetimeMatchClient {
     this.setStatus({ connection: "connecting", error: "" });
     await new Promise<void>((resolve, reject) => {
       let settled = false;
+      let timedOut = false;
+      let timeoutId: number | null = null;
+      const clearConnectTimeout = () => {
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
+        timeoutId = null;
+      };
       const builder = DbConnection.builder()
         .withUri(this.uri)
         .withDatabaseName(this.database)
         .withToken(localStorage.getItem(TOKEN_KEY) ?? undefined)
         .onConnect((conn, identity, token) => {
+          if (settled) {
+            conn.disconnect();
+            return;
+          }
           this.conn = conn;
           this.identity = identity;
           this.identityByHex.set(identity.toHexString(), identity);
@@ -290,30 +340,75 @@ export class SpacetimeMatchClient {
           conn.db.swordPose.onInsert((_ctx, row) => this.handlePoseRow(row));
           conn.db.swordPose.onUpdate((_ctx, _old, row) => this.handlePoseRow(row));
           conn.db.swordPose.onDelete((_ctx, row) => {
-            if (this.identity && !row.identity.equals(this.identity)) {
+            if (
+              this.roomCode &&
+              row.roomCode === this.roomCode &&
+              this.identity &&
+              !row.identity.equals(this.identity)
+            ) {
               this.listeners.onRemotePose(null);
             }
             this.refreshRoster();
           });
           conn.db.matchPlayer.onInsert(() => this.refreshRoster());
+          conn.db.matchPlayer.onUpdate(() => this.refreshRoster());
           conn.db.matchPlayer.onDelete(() => this.refreshRoster());
           conn.db.match.onInsert(() => this.refreshRoster());
           conn.db.match.onUpdate(() => this.refreshRoster());
           conn.db.combatIntent.onInsert((_ctx, row) => this.handleIntentRow(row));
           conn.db.combatIntent.onUpdate((_ctx, _old, row) => this.handleIntentRow(row));
+          conn.db.combatIntent.onDelete((_ctx, row) => {
+            if (
+              this.roomCode &&
+              row.roomCode === this.roomCode &&
+              this.identity &&
+              !row.identity.equals(this.identity)
+            ) {
+              this.listeners.onCombatIntent?.({
+                identityHex: row.identity.toHexString(),
+                blocking: false,
+                slashSeq: row.slashSeq,
+                guardX: 0,
+                guardY: 1,
+              });
+            }
+          });
           conn.db.combatOutcome.onInsert((_ctx, row) => this.handleOutcomeRow(row));
           conn.db.combatOutcome.onUpdate((_ctx, _old, row) => this.handleOutcomeRow(row));
-          conn.subscriptionBuilder().subscribe([
-            tables.match,
-            tables.matchPlayer,
-            tables.swordPose,
-            tables.combatIntent,
-            tables.combatOutcome,
-          ]);
-          if (!settled) {
-            settled = true;
-            resolve();
-          }
+          conn.db.combatOutcome.onDelete((_ctx, row) => {
+            if (this.roomCode && row.roomCode === this.roomCode) {
+              this.lastOutcomeSeq = -1;
+            }
+          });
+          conn.subscriptionBuilder()
+            .onApplied(() => {
+              combatDebug("subscription.applied", { database: this.database });
+              this.refreshRoster();
+              this.refreshCombatState();
+              if (!settled) {
+                settled = true;
+                clearConnectTimeout();
+                resolve();
+              }
+            })
+            .onError((ctx) => {
+              const error = ctx.event;
+              const message = error instanceof Error ? error.message : String(error);
+              combatDebug("subscription.error", { message });
+              this.setStatus({ connection: "error", error: message });
+              if (!settled) {
+                settled = true;
+                clearConnectTimeout();
+                reject(error instanceof Error ? error : new Error(message));
+              }
+            })
+            .subscribe([
+              tables.match,
+              tables.matchPlayer,
+              tables.swordPose,
+              tables.combatIntent,
+              tables.combatOutcome,
+            ]);
         })
         .onConnectError((_ctx, error) => {
           const message = error instanceof Error ? error.message : String(error);
@@ -321,20 +416,40 @@ export class SpacetimeMatchClient {
           combatDebug("socket.error", { message });
           if (!settled) {
             settled = true;
+            clearConnectTimeout();
             reject(error instanceof Error ? error : new Error(message));
           }
         })
         .onDisconnect(() => {
+          if (timedOut) return;
           combatDebug("socket.disconnected", { roomCode: this.roomCode });
+          if (!settled) {
+            settled = true;
+            clearConnectTimeout();
+            reject(new Error("Disconnected before the match subscription was ready."));
+          }
+          this.clearRosterRefreshSchedule();
           this.conn = null;
+          this.seat = null;
           this.setStatus({
             connection: "idle",
             opponentConnected: false,
             playerCount: 0,
             isHost: false,
+            hostReady: false,
+            guestReady: false,
           });
           this.listeners.onRemotePose(null);
         });
+      timeoutId = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        timedOut = true;
+        const error = new Error("Timed out connecting to the match server.");
+        this.setStatus({ connection: "error", error: error.message });
+        combatDebug("socket.timeout", { database: this.database });
+        reject(error);
+      }, 15_000);
       builder.build();
     });
   }
@@ -354,7 +469,7 @@ export class SpacetimeMatchClient {
     sequence: number;
   }): void {
     if (!this.identity || row.identity.equals(this.identity)) return;
-    if (this.roomCode && row.roomCode !== this.roomCode) return;
+    if (!this.roomCode || row.roomCode !== this.roomCode) return;
     if (row.type !== PRIMARY_GRIP) return;
     const pose = {
       type: PRIMARY_GRIP,
@@ -376,7 +491,7 @@ export class SpacetimeMatchClient {
   }): void {
     this.identityByHex.set(row.identity.toHexString(), row.identity);
     if (!this.identity || row.identity.equals(this.identity)) return;
-    if (this.roomCode && row.roomCode !== this.roomCode) return;
+    if (!this.roomCode || row.roomCode !== this.roomCode) return;
     const intent = {
       identityHex: row.identity.toHexString(),
       blocking: row.blocking,
@@ -397,7 +512,7 @@ export class SpacetimeMatchClient {
     dummyRootX: number;
     winnerIdentity: unknown;
   }): void {
-    if (this.roomCode && row.roomCode !== this.roomCode) return;
+    if (!this.roomCode || row.roomCode !== this.roomCode) return;
     if (!OUTCOME_KINDS.has(row.kind)) return;
     if (row.seq <= this.lastOutcomeSeq) return;
     this.lastOutcomeSeq = row.seq;
@@ -430,8 +545,18 @@ export class SpacetimeMatchClient {
 
   private refreshRoster(): void {
     if (!this.conn || !this.identity) return;
+    if (!this.roomCode) {
+      this.setStatus({
+        playerCount: 0,
+        opponentConnected: false,
+        isHost: false,
+        hostReady: false,
+        guestReady: false,
+      });
+      return;
+    }
     const players = [...this.conn.db.matchPlayer.iter()].filter(
-      (player) => !this.roomCode || player.roomCode === this.roomCode,
+      (player) => player.roomCode === this.roomCode,
     );
     for (const player of players) {
       this.identityByHex.set(player.identity.toHexString(), player.identity);
@@ -443,6 +568,13 @@ export class SpacetimeMatchClient {
       this.identityByHex.set(matchRow.hostIdentity.toHexString(), matchRow.hostIdentity);
     }
     const opponentConnected = players.some((player) => !player.identity.equals(this.identity!));
+    const hostIdentity = matchRow?.hostIdentity;
+    const hostPlayer = hostIdentity
+      ? players.find((player) => player.identity.equals(hostIdentity))
+      : undefined;
+    const guestPlayer = hostIdentity
+      ? players.find((player) => !player.identity.equals(hostIdentity))
+      : undefined;
     if (
       players.length !== this.status.playerCount ||
       opponentConnected !== this.status.opponentConnected
@@ -455,10 +587,59 @@ export class SpacetimeMatchClient {
       });
     }
     this.setStatus({
-      playerCount: players.length,
+      // After createOrJoinMatch succeeds, this client is definitely one of
+      // the players even if the subscription cache has not delivered its row
+      // yet. Use that local knowledge while waiting for the authoritative
+      // snapshot, then replace it with the replicated count below.
+      playerCount: players.length || (this.roomCode ? 1 : 0),
       opponentConnected,
-      isHost: Boolean(matchRow && matchRow.hostIdentity.equals(this.identity)),
+      isHost: matchRow
+        ? matchRow.hostIdentity.equals(this.identity)
+        : this.seat === "host",
+      hostReady: hostPlayer?.ready === true,
+      guestReady: guestPlayer?.ready === true,
     });
+  }
+
+  private refreshCombatState(): void {
+    if (!this.conn || !this.identity || !this.roomCode) return;
+    for (const row of this.conn.db.combatIntent.iter()) {
+      if (row.roomCode === this.roomCode && !row.identity.equals(this.identity)) {
+        this.handleIntentRow(row);
+      }
+    }
+    const outcome = this.conn.db.combatOutcome.roomCode.find(this.roomCode);
+    if (outcome) this.handleOutcomeRow(outcome);
+  }
+
+  private reportCombatPublishError(kind: "intent" | "outcome", error: unknown): void {
+    const detail = error instanceof Error ? error.message : String(error);
+    const message = `Failed to publish combat ${kind}: ${detail}`;
+    combatDebug("combat.publish.error", { kind, message: detail });
+    if (this.status.error !== message) this.setStatus({ error: message });
+  }
+
+  private clearRosterRefreshSchedule(): void {
+    this.rosterRefreshGeneration += 1;
+    for (const timer of this.rosterRefreshTimers) window.clearTimeout(timer);
+    this.rosterRefreshTimers.clear();
+  }
+
+  private scheduleRosterRefresh(): void {
+    this.clearRosterRefreshSchedule();
+    const generation = this.rosterRefreshGeneration;
+    // Keep the retry window short, but long enough to cover a cold
+    // connection's initial subscription snapshot.
+    for (const delay of [0, 50, 150, 350, 750, 1_500]) {
+      let timer = 0;
+      timer = window.setTimeout(() => {
+        this.rosterRefreshTimers.delete(timer);
+        if (generation !== this.rosterRefreshGeneration) return;
+        this.refreshRoster();
+        this.refreshCombatState();
+      }, delay);
+      this.rosterRefreshTimers.add(timer);
+    }
   }
 
   private setStatus(patch: Partial<MatchClientStatus>): void {
