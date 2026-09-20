@@ -120,17 +120,17 @@ function hitConnects(attacker: FighterSnapshot, defender: FighterSnapshot): bool
 }
 
 /**
- * Apply outbound knockback along the duel axis with soft-edge ring-out rules.
- * Outbound = further from arena center.
+ * Apply signed knockback along the duel axis with soft-edge ring-out rules.
+ * Callers choose the physical direction; inward movement clears soft-edge state.
  */
 export function applySoftEdgeKnockback(
   rootX: number,
   onSoftEdge: boolean,
-  outboundSign: number,
+  directionSign: number,
   arenaCenter: number = 0,
   distance: number = KNOCKBACK_M,
 ): { rootX: number; onSoftEdge: boolean; ringedOut: boolean } {
-  const sign = outboundSign < 0 ? -1 : 1;
+  const sign = directionSign < 0 ? -1 : 1;
   const proposed = rootX + sign * distance;
   const proposedOffset = proposed - arenaCenter;
   const absOffset = Math.abs(proposedOffset);
@@ -150,6 +150,16 @@ function outboundSign(rootX: number, arenaCenter: number): number {
   const offset = rootX - arenaCenter;
   if (offset === 0) return 1;
   return Math.sign(offset);
+}
+
+/** Direction from the opponent toward this fighter, with a stable overlap fallback. */
+function awayFromOpponentSign(
+  selfX: number,
+  opponentX: number,
+  arenaCenter: number,
+): number {
+  const separation = selfX - opponentX;
+  return separation === 0 ? outboundSign(selfX, arenaCenter) : Math.sign(separation);
 }
 
 function advanceToward(selfX: number, opponentX: number, distance: number = ADVANCE_M): number {
@@ -199,13 +209,13 @@ export function resolveCombat(input: CombatResolveInput): CombatResolveResult | 
     const pKnock = applySoftEdgeKnockback(
       player.rootX,
       player.onSoftEdge,
-      outboundSign(player.rootX, arenaCenter),
+      awayFromOpponentSign(player.rootX, dummy.rootX, arenaCenter),
       arenaCenter,
     );
     const dKnock = applySoftEdgeKnockback(
       dummy.rootX,
       dummy.onSoftEdge,
-      outboundSign(dummy.rootX, arenaCenter),
+      awayFromOpponentSign(dummy.rootX, player.rootX, arenaCenter),
       arenaCenter,
     );
     const playerX = advanceToward(pKnock.rootX, dKnock.rootX);
@@ -250,7 +260,7 @@ function resolveBlockOrHit(
     const knock = applySoftEdgeKnockback(
       attacker.rootX,
       attacker.onSoftEdge,
-      outboundSign(attacker.rootX, arenaCenter),
+      awayFromOpponentSign(attacker.rootX, defender.rootX, arenaCenter),
       arenaCenter,
     );
     const playerX = attackerIsPlayer ? knock.rootX : defender.rootX;
@@ -280,7 +290,7 @@ function resolveHit(
   const knock = applySoftEdgeKnockback(
     defender.rootX,
     defender.onSoftEdge,
-    outboundSign(defender.rootX, arenaCenter),
+    awayFromOpponentSign(defender.rootX, attacker.rootX, arenaCenter),
     arenaCenter,
   );
   const advanced = advanceToward(attacker.rootX, knock.rootX);

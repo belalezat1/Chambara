@@ -128,6 +128,71 @@ test("successful directional block knocks attacker", () => {
   near(result.dummyRootX, dummy.rootX);
 });
 
+test("block knocks the attacker away from defender when both are right of center", () => {
+  const { player, dummy } = leftAttackingRight({
+    player: {
+      rootX: 1,
+      bladeTip: { x: 2, y: 1, z: 0 },
+      bladeBase: { x: 1.6, y: 1, z: 0.1 },
+    },
+    dummy: {
+      rootX: 2,
+      blocking: true,
+      blockingBeforeWindow: true,
+      guardX: 1,
+      guardY: 0,
+    },
+  });
+
+  const result = resolveCombat({ player, dummy });
+  assert.ok(result);
+  assert.equal(result.kind, "blocked");
+  near(result.playerRootX, player.rootX - KNOCKBACK_M);
+  near(result.dummyRootX, dummy.rootX);
+});
+
+test("block knocks the dummy-seat attacker away when both are left of center", () => {
+  const player = fighter({
+    identityHex: "p1",
+    rootX: -2,
+    blocking: true,
+    blockingBeforeWindow: true,
+    guardX: 1,
+    guardY: 0,
+  });
+  const dummy = fighter({
+    identityHex: "p2",
+    rootX: -1,
+    slashProgress: 0.5,
+    slashAngle: 0,
+    bladeTip: { x: -2, y: 1, z: 0 },
+    bladeBase: { x: -1.6, y: 1, z: 0.1 },
+  });
+
+  const result = resolveCombat({ player, dummy });
+  assert.ok(result);
+  assert.equal(result.kind, "blocked");
+  near(result.playerRootX, player.rootX);
+  near(result.dummyRootX, dummy.rootX + KNOCKBACK_M);
+});
+
+test("hit knocks defender away from attacker when both are right of center", () => {
+  const { player, dummy } = leftAttackingRight({
+    player: {
+      rootX: 2,
+      bladeTip: { x: 1, y: 1, z: 0 },
+      bladeBase: { x: 1.4, y: 1, z: 0.1 },
+    },
+    dummy: { rootX: 1 },
+  });
+
+  const result = resolveCombat({ player, dummy });
+  assert.ok(result);
+  assert.equal(result.kind, "hit");
+  near(result.dummyRootX, dummy.rootX - KNOCKBACK_M);
+  near(result.playerRootX, player.rootX - ADVANCE_M);
+});
+
 test("wrong block angle fails into a normal hit", () => {
   const badGuard = ((BLOCK_ANGLE_DEG + 15) * Math.PI) / 180;
   const { player, dummy } = leftAttackingRight({
