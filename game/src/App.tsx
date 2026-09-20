@@ -303,6 +303,17 @@ function DesktopApp(): ReactElement {
       setCombatWinnerHex(null);
       setCombatFrozen(false);
     }
+  }, [
+    matchStatus.roomCode,
+    matchStatus.isHost,
+    matchStatus.identityHex,
+    matchStatus.opponentConnected,
+  ]);
+
+  // Versus lobby transitions. Kept separate from the combat-session effect above
+  // so that entering the duel screen (a uiScreen change) never tears down / resets
+  // a duel session that was just started.
+  useEffect(() => {
     if (
       versusModeRef.current &&
       matchStatus.roomCode &&
@@ -317,20 +328,9 @@ function DesktopApp(): ReactElement {
       matchStatus.opponentConnected &&
       (uiScreen === "waiting" || uiScreen === "make" || uiScreen === "join")
     ) {
-      setUiScreen("ready");
-      playUiSfx("confirm");
-      window.setTimeout(() => {
-        setUiScreen("duel");
-        setShowLab(true);
-      }, 1800);
+      startVersusDuel();
     }
-  }, [
-    matchStatus.roomCode,
-    matchStatus.isHost,
-    matchStatus.identityHex,
-    matchStatus.opponentConnected,
-    uiScreen,
-  ]);
+  }, [matchStatus.roomCode, matchStatus.opponentConnected, uiScreen]);
 
   useEffect(() => {
     if (uiScreen === "duel" && initialUiScreen() === "duel") {
@@ -435,6 +435,37 @@ function DesktopApp(): ReactElement {
     playUiSfx("confirm");
     versusModeRef.current = true;
     setUiScreen("make");
+  };
+
+  // Versus "opponent found" → ready splash → duel. Starts the duel session so
+  // combat/countdown actually run (previously only Practice / ?lab=1 did this).
+  const startVersusDuel = () => {
+    versusModeRef.current = true;
+    setUiScreen("ready");
+    playUiSfx("confirm");
+    window.setTimeout(() => {
+      setUiScreen("duel");
+      setShowLab(true);
+      setHitCount(0);
+      setRoundBanner(null);
+      gameRef.current?.beginDuelSession();
+    }, 1800);
+  };
+
+  // DEV-only: exercise the Versus ready→duel transition without a second client.
+  // Detaches the live match first so the match effect cannot reset the phase.
+  const startSoloVersusTest = () => {
+    matchClientRef.current?.disconnect();
+    versusModeRef.current = false;
+    setUiScreen("ready");
+    playUiSfx("confirm");
+    window.setTimeout(() => {
+      setUiScreen("duel");
+      setShowLab(true);
+      setHitCount(0);
+      setRoundBanner(null);
+      gameRef.current?.beginDuelSession();
+    }, 1500);
   };
 
   const startMakeRoom = () => {
@@ -593,7 +624,7 @@ function DesktopApp(): ReactElement {
                     }}
                   >
                     <img
-                      src={`/ui/menu/${id}_${menuFocus === id ? "w" : "b"}.png`}
+                      src={`/ui/menu/${id === "settings" ? "setting" : id}_${menuFocus === id ? "w" : "b"}.png`}
                       alt={label}
                       draggable={false}
                     />
@@ -604,30 +635,42 @@ function DesktopApp(): ReactElement {
           ) : null}
 
           {uiScreen === "make" ? (
-            <div className="ui-fullbleed ui-make-join">
-              <img src="/ui/make.png" alt="Make room" className="ui-fullbleed-img" />
-              <div className="ui-make-join-actions">
-                <button type="button" className="ui-hit-zone ui-hit-primary" aria-label="Make room" onClick={startMakeRoom} />
-                <button type="button" className="ui-hit-zone ui-hit-secondary" aria-label="Join instead" onClick={openJoinScreen} />
+            <div className="ui-fullbleed ui-make-join" style={{ backgroundImage: "url(/ui/background_gray.png)" }}>
+              <button type="button" className="ui-poster-button" aria-label="Make room" onClick={startMakeRoom}>
+                <img src="/ui/make.png" alt="Make room" className="ui-poster-img" draggable={false} />
+              </button>
+              <p className="ui-poster-caption">Tap the poster to create a room</p>
+              <div className="ui-poster-actions">
+                <button type="button" className="ui-text-button" onClick={startMakeRoom}>Make room</button>
+                <button type="button" className="ui-text-button" onClick={openJoinScreen}>Join a room</button>
+                {import.meta.env.DEV ? (
+                  <button type="button" className="ui-text-button ui-text-button-ghost" onClick={startSoloVersusTest}>
+                    Start solo (dev)
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  className="ui-hit-zone ui-hit-back"
-                  aria-label="Back"
+                  className="ui-text-button ui-text-button-ghost"
                   onClick={() => {
                     playUiSfx("cancel");
                     setUiScreen("menu");
                   }}
-                />
+                >
+                  Back
+                </button>
               </div>
             </div>
           ) : null}
 
           {uiScreen === "join" ? (
-            <div className="ui-fullbleed ui-make-join">
-              <img src="/ui/join.png" alt="Join room" className="ui-fullbleed-img" />
-              <div className="ui-join-form">
+            <div className="ui-fullbleed ui-make-join" style={{ backgroundImage: "url(/ui/background_gray.png)" }}>
+              <div className="ui-poster-stage">
+                <img src="/ui/join.png" alt="Join room" className="ui-poster-img" draggable={false} />
+              </div>
+              <div className="ui-poster-actions ui-join-form">
                 <input
                   aria-label="Match code"
+                  placeholder="CODE"
                   value={matchCode}
                   onChange={(event) =>
                     setMatchCode(
@@ -659,24 +702,33 @@ function DesktopApp(): ReactElement {
               <p className="ui-waiting-code">{matchCode}</p>
               <p className="ui-waiting-copy">Waiting for opponent…</p>
               <p className="ui-waiting-note">Lobby art coming soon</p>
-              <button
-                type="button"
-                className="ui-text-button"
-                onClick={() => {
-                  playUiSfx("cancel");
-                  leaveMatch();
-                  setUiScreen("make");
-                }}
-              >
-                Cancel
-              </button>
+              <div className="ui-poster-actions">
+                {import.meta.env.DEV ? (
+                  <button type="button" className="ui-text-button" onClick={startSoloVersusTest}>
+                    Start solo (dev)
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="ui-text-button ui-text-button-ghost"
+                  onClick={() => {
+                    playUiSfx("cancel");
+                    leaveMatch();
+                    setUiScreen("make");
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ) : null}
 
           {uiScreen === "ready" ? (
             <div className="ui-fullbleed ui-ready">
-              <img src="/ui/lobby_found/versus_bg.gif" alt="" className="ui-fullbleed-img" aria-hidden />
-              <img src="/ui/lobby_found/girl_vs.gif" alt="Versus" className="ui-ready-vs" />
+              <div className="ui-ready-card">
+                <img src="/ui/lobby_found/versus_bg.gif" alt="" className="ui-ready-bg" aria-hidden />
+                <img src="/ui/lobby_found/girl_vs.gif" alt="Versus" className="ui-ready-vs" />
+              </div>
               <img src="/ui/ready.png" alt="Ready" className="ui-ready-banner" />
             </div>
           ) : null}

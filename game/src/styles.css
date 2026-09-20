@@ -420,33 +420,74 @@ h2 { margin-top: 6px; font-size: 21px; letter-spacing: -0.03em; }
 }
 .ui-menu-hit img {
   display: block;
-  width: 100%;
-  height: auto;
+  height: clamp(52px, 9.5vh, 88px);
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 35%));
+  transition: transform 100ms ease-out;
 }
-.ui-make-join { cursor: default; }
-.ui-make-join-actions {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+.ui-menu-hit:hover img,
+.ui-menu-hit:focus-visible img {
+  transform: scale(1.05);
 }
-.ui-hit-zone {
-  position: absolute;
-  pointer-events: auto;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.ui-hit-primary { left: 18%; right: 18%; top: 38%; height: 14%; }
-.ui-hit-secondary { left: 18%; right: 18%; top: 54%; height: 12%; }
-.ui-hit-back { left: 6%; width: 16%; bottom: 8%; height: 10%; }
-.ui-join-form {
-  position: absolute;
-  left: 50%;
-  top: 58%;
-  transform: translateX(-50%);
+.ui-make-join {
+  cursor: default;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 3vh, 26px);
+  background-color: #12151b;
+  background-size: cover;
+  background-position: center;
+  padding: 4vh 4vw;
+}
+/* Letterboxed poster: contain the portrait art so it is never cropped/stretched. */
+.ui-poster-stage,
+.ui-poster-button {
+  display: block;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  line-height: 0;
+}
+.ui-poster-button { cursor: pointer; }
+.ui-poster-img {
+  display: block;
+  max-height: 48vh;
+  max-width: min(360px, 82vw);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 14px 30px rgb(0 0 0 / 55%));
+  transition: transform 120ms ease-out;
+}
+.ui-poster-button:hover .ui-poster-img,
+.ui-poster-button:focus-visible .ui-poster-img {
+  transform: scale(1.03);
+}
+.ui-poster-caption {
+  margin: 0;
+  font-family: "Born2bSporty", "Space Grotesk", sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(248 243 233 / 62%);
+}
+.ui-poster-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.ui-join-form {
+  flex-direction: column;
   width: min(320px, 80vw);
 }
 .ui-join-form input {
@@ -501,19 +542,46 @@ h2 { margin-top: 6px; font-size: 21px; letter-spacing: -0.03em; }
   color: rgb(248 243 233 / 55%);
   font-size: 12px;
 }
-.ui-ready { cursor: default; }
+.ui-ready {
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 4vh, 40px);
+  background:
+    radial-gradient(circle at 50% 35%, rgb(60 30 24 / 65%), transparent 60%),
+    #0a0d12;
+}
+/* Contain the small pixel GIFs as a centered versus card (no cover-stretch). */
+.ui-ready-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(760px, 92vw);
+}
+.ui-ready-bg {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 60%);
+}
 .ui-ready-vs {
   position: absolute;
-  width: min(70vw, 520px);
+  width: min(58%, 460px);
   height: auto;
-  z-index: 1;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 16px rgb(0 0 0 / 70%));
 }
 .ui-ready-banner {
-  position: absolute;
-  bottom: 12%;
-  width: min(50vw, 360px);
+  display: block;
+  width: min(46vw, 320px);
   height: auto;
-  z-index: 2;
+  image-rendering: pixelated;
+  animation: countdown-pop 320ms ease-out;
 }
 
 .countdown-overlay {
