@@ -5,6 +5,32 @@ import type { QuaternionTuple } from "./MotionTypes";
 const DEGREES_TO_RADIANS = Math.PI / 180;
 const AXIS_EPSILON = 1e-8;
 
+/** Frame-rate-independent blend amount for exponential pose damping. */
+export function exponentialDampingAlpha(damping: number, dt: number): number {
+  if (!Number.isFinite(damping) || damping <= 0) return 1;
+  if (!Number.isFinite(dt) || dt <= 0) return 0;
+  return 1 - Math.exp(-damping * dt);
+}
+
+/**
+ * Returns the quaternion representation nearest to `reference`.
+ * q and -q encode the same rotation, but choosing opposite representations
+ * on adjacent frames can make interpolation take an unstable path.
+ */
+export function alignQuaternionHemisphere(
+  reference: Quaternion,
+  target: Quaternion,
+): Quaternion {
+  const aligned = target.clone().normalize();
+  if (Quaternion.Dot(reference, aligned) < 0) {
+    aligned.x *= -1;
+    aligned.y *= -1;
+    aligned.z *= -1;
+    aligned.w *= -1;
+  }
+  return aligned;
+}
+
 export const SIMULATED_POSE_NAMES = [
   "neutral",
   "up",

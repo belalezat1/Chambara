@@ -663,7 +663,7 @@ function DesktopApp(): ReactElement {
           </div>
           <p className="panel-note">
             {status.motion.smoothingEnabled
-              ? "Quaternion slerp: " + MOTION_SMOOTHING_ALPHA.toFixed(2) + " per 60 Hz tick."
+              ? "Unified position + quaternion damping: " + MOTION_SMOOTHING_ALPHA.toFixed(2) + " equivalent blend at 60 Hz."
               : "Raw quaternion target: no presentation smoothing."}
           </p>
           <div className="section-label pose-label">SIMULATED POSES</div>

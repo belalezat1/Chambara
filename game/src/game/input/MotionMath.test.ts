@@ -5,8 +5,10 @@ import test from "node:test";
 import { Quaternion, Vector3 } from "@babylonjs/core";
 
 import {
+  alignQuaternionHemisphere,
   deviceOrientationToQuaternion,
   derivePhoneToGameplayBasis,
+  exponentialDampingAlpha,
   GAMEPLAY_BLADE_UP_AXIS,
   neutralSwordRotation,
   orthonormalFrame,
@@ -433,4 +435,31 @@ test("root-relative grip anchors translate with a fighter without changing orien
     new Vector3(1, 0, 0),
   );
   assert.ok(point.equalsWithEpsilon(new Vector3(2, 3, 3), 1e-6));
+});
+
+test("exponential pose damping is frame-rate independent", () => {
+  const damping = 20;
+  const target = 1;
+  let atThirtyFps = 0;
+  let atOneTwentyFps = 0;
+  for (let frame = 0; frame < 30; frame += 1) {
+    const alpha = exponentialDampingAlpha(damping, 1 / 30);
+    atThirtyFps += (target - atThirtyFps) * alpha;
+  }
+  for (let frame = 0; frame < 120; frame += 1) {
+    const alpha = exponentialDampingAlpha(damping, 1 / 120);
+    atOneTwentyFps += (target - atOneTwentyFps) * alpha;
+  }
+  assert.ok(Math.abs(atThirtyFps - atOneTwentyFps) < 1e-10);
+  assert.equal(exponentialDampingAlpha(damping, 0), 0);
+});
+
+test("quaternion hemisphere alignment preserves rotation and chooses the short representation", () => {
+  const reference = Quaternion.Identity();
+  const target = Quaternion.RotationAxis(Vector3.Up(), 0.4).normalize();
+  const oppositeRepresentation = new Quaternion(-target.x, -target.y, -target.z, -target.w);
+  const aligned = alignQuaternionHemisphere(reference, oppositeRepresentation);
+
+  assert.ok(Quaternion.Dot(reference, aligned) >= 0);
+  assertSameRotation(aligned, target, "hemisphere-aligned target");
 });

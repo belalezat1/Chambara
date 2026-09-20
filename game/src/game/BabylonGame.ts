@@ -68,7 +68,9 @@ import {
   quaternionAngularDistance,
 } from "./input/TorsoFollowMath";
 import {
+  alignQuaternionHemisphere,
   derivePhoneToGameplayBasis,
+  exponentialDampingAlpha,
   GAMEPLAY_BLADE_FORWARD_AXIS,
   neutralSwordRotation,
   phoneDeltaToGameDelta,
@@ -109,7 +111,10 @@ import {
 
 export const SIM_DT = 1 / 60;
 export const MOTION_STALE_MS = 1_000;
-export const MOTION_SMOOTHING_ALPHA = 0.28;
+export const MOTION_ROTATION_DAMPING = 20;
+export const MOTION_POSITION_DAMPING = 24;
+/** Equivalent 60 Hz rotation blend, retained for diagnostics/UI compatibility. */
+export const MOTION_SMOOTHING_ALPHA = 1 - Math.exp(-MOTION_ROTATION_DAMPING * SIM_DT);
 export const EXPECTED_ANIMATIONS = [
   "CombatIdle",
   "AttackSwing",
@@ -385,7 +390,7 @@ export function createInitialRuntimeStatus(): RuntimeStatus {
       ikFinite: false,
       showWeaponDebug: false,
       showIkDebug: false,
-      smoothingEnabled: false,
+      smoothingEnabled: true,
       smoothingAlpha: MOTION_SMOOTHING_ALPHA,
     },
   };
@@ -1198,6 +1203,8 @@ export class BabylonGame {
   private v05ShoulderRestRoot: V05ShoulderRestManifest | null = null;
   private readonly presentationRotation = new Quaternion();
   private readonly weaponSmoothingRotation = new Quaternion();
+  private readonly presentationPosition = new Vector3();
+  private readonly weaponSmoothingPosition = new Vector3();
 
   private player: CharacterInstance | null = null;
   private dummy: CharacterInstance | null = null;
@@ -1225,9 +1232,11 @@ export class BabylonGame {
   private readonly phoneSequenceAdmission = new SessionSequenceAdmission();
   private simulatedMotionMode: "continuous" | SimulatedPoseName | null = null;
   private simulatedSequence = 0;
-  private motionSmoothingEnabled = false;
+  private motionSmoothingEnabled = true;
   private torsoFollowEnabled = false;
   private presentationInitialized = false;
+  private presentationDeltaSeconds = SIM_DT;
+  private presentationCalibrationKey: string | null = null;
   private poseState: PoseState = "READY";
   private targetPoseState: PoseState = "READY";
   private reachFraction = POSE_REACH_FRACTIONS.READY;
@@ -1322,8 +1331,21 @@ export class BabylonGame {
       if (previousGeneration !== sample.sessionGeneration) {
         this.latestControllerState = null;
         this.latchedControllerState = null;
+        this.presentationCalibrationKey = null;
+        this.resetPresentationFilter();
       }
       this.status.motion.sessionGeneration = sample.sessionGeneration;
+    }
+
+    if (sample.calibrationReferenceQuaternion) {
+      const calibrationKey = sample.calibrationReferenceQuaternion.join(",");
+      if (
+        this.presentationCalibrationKey !== null &&
+        calibrationKey !== this.presentationCalibrationKey
+      ) {
+        this.resetPresentationFilter();
+      }
+      this.presentationCalibrationKey = calibrationKey;
     }
 
     this.latestControllerState = {
@@ -1366,6 +1388,8 @@ export class BabylonGame {
       this.phoneSequenceAdmission.begin(relayStatus.sessionGeneration);
       this.latestControllerState = null;
       this.latchedControllerState = null;
+      this.presentationCalibrationKey = null;
+      this.resetPresentationFilter();
       this.status.motion.source = "none";
       this.status.motion.streamState = "idle";
       this.status.motion.lastSequence = null;
@@ -1416,6 +1440,10 @@ export class BabylonGame {
     this.motionSmoothingEnabled = enabled;
     this.status.motion.smoothingEnabled = enabled;
     this.emitStatus(true);
+  }
+
+  private resetPresentationFilter(): void {
+    this.presentationInitialized = false;
   }
 
   /** Toggles presentation-only torso/shoulder follow without touching targets. */
@@ -2455,6 +2483,8 @@ export class BabylonGame {
 
   private resetSimulatedInputState(): void {
     this.resetCircleSword();
+    this.resetPresentationFilter();
+    this.presentationCalibrationKey = null;
     this.latestControllerState = null;
     this.latchedControllerState = null;
     this.simulatedSequence = 0;
@@ -3199,34 +3229,59 @@ export class BabylonGame {
 
     if (!this.presentationInitialized) {
       this.presentationRotation.copyFrom(targetVisibleRotation);
+      this.presentationPosition.copyFrom(targetPosition);
       this.presentationInitialized = true;
     } else if (this.motionSmoothingEnabled) {
-      Quaternion.SlerpToRef(
+      const rotationAlpha = exponentialDampingAlpha(
+        MOTION_ROTATION_DAMPING,
+        this.presentationDeltaSeconds,
+      );
+      const positionAlpha = exponentialDampingAlpha(
+        MOTION_POSITION_DAMPING,
+        this.presentationDeltaSeconds,
+      );
+      const alignedTargetRotation = alignQuaternionHemisphere(
         this.presentationRotation,
         targetVisibleRotation,
-        MOTION_SMOOTHING_ALPHA,
+      );
+      Quaternion.SlerpToRef(
+        this.presentationRotation,
+        alignedTargetRotation,
+        rotationAlpha,
         this.weaponSmoothingRotation,
       );
       this.presentationRotation.copyFrom(this.weaponSmoothingRotation);
+      Vector3.LerpToRef(
+        this.presentationPosition,
+        targetPosition,
+        positionAlpha,
+        this.weaponSmoothingPosition,
+      );
+      this.presentationPosition.copyFrom(this.weaponSmoothingPosition);
     } else {
       this.presentationRotation.copyFrom(targetVisibleRotation);
+      this.presentationPosition.copyFrom(targetPosition);
     }
 
+    const presentationGameplayRotation = this.presentationRotation
+      .multiply(this.assetWeaponCorrection.clone().invert())
+      .normalize();
+
     const visiblePoints = deriveWeaponPosePoints(
-      targetPosition,
+      this.presentationPosition,
       this.presentationRotation,
       this.weaponAttachment.geometry,
     );
     // WeaponRoot stays in its exported BAIZHONG_ROOT hierarchy. Moving this
     // root keeps Shinai and every marker in one authored subtree.
-    this.setWeaponRootPose(targetPosition, this.presentationRotation);
+    this.setWeaponRootPose(this.presentationPosition, this.presentationRotation);
     // Importer-linked animation nodes are copied into bones by Skeleton.prepare
     // during the render path. Prepare the animation pose first, then apply a
     // baseline-relative torso delta and finally solve the detached arm chain.
     this.poseRig.skeleton.prepare(true);
     this.poseRig.skeleton.computeAbsoluteMatrices(true);
     const torsoBaseline = this.captureTorsoFollowBaseline();
-    this.applyTorsoFollow(targetGameplayRotation, torsoBaseline);
+    this.applyTorsoFollow(presentationGameplayRotation, torsoBaseline);
     this.poseRig.skeleton.computeAbsoluteMatrices(true);
     this.applyArmIk(this.poseRig.rightArm, visiblePoints.primaryHandTarget, this.presentationRotation);
     this.poseRig.skeleton.computeAbsoluteMatrices(true);
@@ -3770,6 +3825,7 @@ export class BabylonGame {
     if (this.disposed) return;
 
     const frameDelta = Math.min(this.engine.getDeltaTime() / 1000, 0.1);
+    this.presentationDeltaSeconds = frameDelta;
     this.accumulator = Math.min(this.accumulator + frameDelta, SIM_DT * 8);
     while (this.accumulator >= SIM_DT) {
       this.simulationStep(SIM_DT);
