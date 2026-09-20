@@ -936,6 +936,7 @@ export class BabylonGame {
     this.lastCombatOutcome = outcome.kind;
 
     const now = performance.now();
+    const previousSeats = this.getCombatSeats();
     // Received outcomes use the authoritative host's coordinate frame. Use
     // its identity rather than transient roster/UI state to decide whether to
     // mirror. Locally-resolved solo outcomes keep their direct frame.
@@ -966,6 +967,10 @@ export class BabylonGame {
       localIsActor,
       wireSeats: { playerX: outcome.playerRootX, dummyX: outcome.dummyRootX },
       localSeats: this.getCombatSeats(),
+      localSeatDelta: {
+        playerX: this.playerCombatX - previousSeats.playerX,
+        dummyX: this.dummyCombatX - previousSeats.dummyX,
+      },
       host: shortIdentity(outcome.hostIdentityHex ?? null),
       actor: shortIdentity(outcome.actorIdentityHex),
       target: shortIdentity(outcome.targetIdentityHex),
@@ -991,13 +996,11 @@ export class BabylonGame {
         this.player?.controller.play("HitKnockback");
         this.playerInvulnUntil = now + HIT_INVULN_MS;
       }
-      this.regroupTarget = regroupTargets(
-        {
-          playerX: outcome.playerRootX,
-          dummyX: outcome.dummyRootX,
-        },
-        localIsActor || outcome.actorIdentityHex === "local",
-      );
+      // A landed hit already advances the attacker by ADVANCE_M while moving
+      // the defender by KNOCKBACK_M. Regrouping here used to pull the attacker
+      // backward by the lunge distance, visually reversing the successful hit.
+      // Keep both authoritative post-hit positions; only a miss recovers.
+      this.regroupTarget = null;
     } else if (outcome.kind === "clash") {
       this.lungeHitConnected = true;
       this.lungeActive = false;
@@ -1015,10 +1018,7 @@ export class BabylonGame {
       }, 200);
       // Clash: treat local as attacker for reseat (keep remote/dummy X).
       this.regroupTarget = regroupTargets(
-        {
-          playerX: outcome.playerRootX,
-          dummyX: outcome.dummyRootX,
-        },
+        localSeats,
         true,
       );
     } else if (outcome.kind === "blocked") {
@@ -1043,10 +1043,7 @@ export class BabylonGame {
         this.player?.controller.play("BlockIdle");
       }
       this.regroupTarget = regroupTargets(
-        {
-          playerX: outcome.playerRootX,
-          dummyX: outcome.dummyRootX,
-        },
+        localSeats,
         localIsActor || outcome.actorIdentityHex === "local",
       );
     } else if (outcome.kind === "ringout") {
