@@ -3,9 +3,14 @@
  * Usage: node scripts/solo-hit-until-ringout.mjs
  */
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ARTIFACTS = "/opt/cursor/artifacts";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ARTIFACTS = existsSync("/opt/cursor/artifacts")
+  ? "/opt/cursor/artifacts"
+  : join(__dirname, "../artifacts");
 mkdirSync(ARTIFACTS, { recursive: true });
 
 async function row(page, label) {
@@ -25,9 +30,20 @@ async function readHud(page) {
     miss: await row(page, "MISS"),
     outcome: await row(page, "OUTCOME"),
     weapon: await row(page, "WEAPON CONTROL"),
+    matchPhase: await row(page, "PHASE").catch(() => "?"),
     phase: (await page.locator(".circle-guard .section-label").first().textContent())?.trim() ?? "?",
     winner: await row(page, "WINNER").catch(() => "—"),
   };
+}
+
+async function waitFighting(page) {
+  for (let i = 0; i < 60; i++) {
+    const phase = await row(page, "PHASE").catch(() => "?");
+    console.log(`wait fighting i=${i}`, phase);
+    if (phase === "FIGHTING") return true;
+    await page.waitForTimeout(400);
+  }
+  return false;
 }
 
 async function waitAiming(page) {
@@ -48,8 +64,9 @@ async function main() {
     args: ["--use-gl=angle", "--enable-webgl", "--ignore-gpu-blocklist"],
   });
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-  await page.goto("http://localhost:5173/", { waitUntil: "networkidle", timeout: 120_000 });
+  await page.goto("http://localhost:5173/?lab=1", { waitUntil: "networkidle", timeout: 120_000 });
   await page.waitForTimeout(6000);
+  if (!(await waitFighting(page))) throw new Error("Timed out waiting for PHASE FIGHTING");
   await page.getByRole("button", { name: "up", exact: true }).click();
   for (let i = 0; i < 30; i++) {
     if ((await row(page, "WEAPON CONTROL")) === "ENABLED") break;

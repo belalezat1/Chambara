@@ -1,11 +1,16 @@
 /**
  * Browser smoke: simulated pose + two Test slashes; report Hits / Miss HUD.
- * Run: npx playwright test (or node with playwright).
+ * Run: node scripts/solo-hit-browser.mjs
  */
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ARTIFACTS = "/opt/cursor/artifacts";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ARTIFACTS = existsSync("/opt/cursor/artifacts")
+  ? "/opt/cursor/artifacts"
+  : join(__dirname, "../artifacts");
 mkdirSync(ARTIFACTS, { recursive: true });
 
 function hudRow(page, label) {
@@ -16,8 +21,19 @@ async function readHud(page) {
   const hits = (await hudRow(page, "HITS").textContent())?.trim() ?? "?";
   const miss = (await hudRow(page, "MISS").textContent())?.trim() ?? "?";
   const weapon = (await hudRow(page, "WEAPON CONTROL").textContent())?.trim() ?? "?";
+  const matchPhase = (await hudRow(page, "PHASE").textContent().catch(() => "?"))?.trim() ?? "?";
   const phase = await page.locator(".circle-guard .section-label").first().textContent();
-  return { hits, miss, weapon, phase: phase?.trim() ?? "?" };
+  return { hits, miss, weapon, matchPhase, phase: phase?.trim() ?? "?" };
+}
+
+async function waitFighting(page) {
+  for (let i = 0; i < 60; i++) {
+    const hud = await readHud(page);
+    console.log(`wait fighting i=${i}`, hud.matchPhase, hud.weapon);
+    if (hud.matchPhase === "FIGHTING") return true;
+    await page.waitForTimeout(400);
+  }
+  return false;
 }
 
 async function main() {
@@ -32,11 +48,15 @@ async function main() {
   page.on("pageerror", (err) => console.log("PAGE_ERROR:", err.message));
 
   console.log("Navigating...");
-  await page.goto("http://localhost:5173/", { waitUntil: "networkidle", timeout: 120_000 });
+  await page.goto("http://localhost:5173/?lab=1", { waitUntil: "networkidle", timeout: 120_000 });
 
   // Wait for asset load labels (player/dummy ready-ish)
   await page.waitForTimeout(8000);
   await page.screenshot({ path: `${ARTIFACTS}/solo_hit_01_loaded.png`, fullPage: true });
+
+  const fighting = await waitFighting(page);
+  if (!fighting) throw new Error("Timed out waiting for PHASE FIGHTING");
+  await page.screenshot({ path: `${ARTIFACTS}/solo_hit_01b_fighting.png`, fullPage: true });
 
   // Rim poses only — neutral sits inside MIN_SWING_RADIUS and cannot slash.
   const poseCandidates = ["up", "right", "left", "down", "diagonalRight", "diagonalLeft"];

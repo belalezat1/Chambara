@@ -29,8 +29,33 @@ import {
   type MatchClientStatus,
 } from "./game/net/SpacetimeMatchClient";
 import type { CombatOutcomeKind } from "./game/combat/CombatConstants";
+import type { MatchPhase } from "./game/combat/CombatConstants";
 
 const SHORTCUTS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "Q", "W", "E"];
+
+type UiScreen = "title" | "menu" | "make" | "join" | "waiting" | "ready" | "duel";
+type MenuFocus = "versus" | "practice" | "settings";
+
+function playUiSfx(name: "confirm" | "cancel" | "text"): void {
+  const file =
+    name === "confirm"
+      ? "/ui/sfx/Confirm%201.wav"
+      : name === "cancel"
+        ? "/ui/sfx/Cancel%201.wav"
+        : "/ui/sfx/Text%201.wav";
+  try {
+    const audio = new Audio(file);
+    void audio.play().catch(() => undefined);
+  } catch {
+    /* ignore */
+  }
+}
+
+function initialUiScreen(): UiScreen {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("lab") === "1" || params.get("skipTitle") === "1") return "duel";
+  return "title";
+}
 
 function stateLabel(state: AssetState): string {
   return state === "ready" ? "READY" : state === "error" ? "ERROR" : "LOADING";
@@ -100,6 +125,17 @@ function DesktopApp(): ReactElement {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const matchClientRef = useRef<SpacetimeMatchClient | null>(null);
   const lastHudOutcomeSeqRef = useRef(-1);
+  const [uiScreen, setUiScreen] = useState<UiScreen>(initialUiScreen);
+  const [menuFocus, setMenuFocus] = useState<MenuFocus>("versus");
+  const [showLab, setShowLab] = useState(() => initialUiScreen() === "duel");
+  const [matchPhase, setMatchPhase] = useState<MatchPhase>("Idle");
+  const [countdownLabel, setCountdownLabel] = useState<string | null>(null);
+  const [roundIndex, setRoundIndex] = useState(1);
+  const [p1Wins, setP1Wins] = useState(0);
+  const [p2Wins, setP2Wins] = useState(0);
+  const [matchWinner, setMatchWinner] = useState<"p1" | "p2" | null>(null);
+  const [roundBanner, setRoundBanner] = useState<string | null>(null);
+  const versusModeRef = useRef(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -185,6 +221,12 @@ function DesktopApp(): ReactElement {
       const hud = game.getCombatHud();
       setLastMissReason(hud.lastMissReason);
       setSeatHud(game.getCombatSeats());
+      setMatchPhase(hud.phase);
+      setCountdownLabel(hud.countdownLabel);
+      setRoundIndex(hud.roundIndex);
+      setP1Wins(hud.p1Wins);
+      setP2Wins(hud.p2Wins);
+      setMatchWinner(hud.matchWinner);
       if (hud.lastOutcomeSeq <= lastHudOutcomeSeqRef.current) return;
       lastHudOutcomeSeqRef.current = hud.lastOutcomeSeq;
       if (hud.lastOutcome) setLastCombatOutcome(hud.lastOutcome);
@@ -195,6 +237,10 @@ function DesktopApp(): ReactElement {
       if (hud.lastOutcome === "ringout") {
         setCombatFrozen(true);
         setCombatWinnerHex(hud.winnerHex);
+        const localIsWinner =
+          hud.winnerHex === "local" ||
+          Boolean(hud.winnerHex && hud.winnerHex === matchClientRef.current?.getStatus().identityHex);
+        setRoundBanner(localIsWinner ? "ROUND WIN" : "ROUND LOST");
       }
     };
     const client = new SpacetimeMatchClient({
@@ -257,12 +303,50 @@ function DesktopApp(): ReactElement {
       setCombatWinnerHex(null);
       setCombatFrozen(false);
     }
+    if (
+      versusModeRef.current &&
+      matchStatus.roomCode &&
+      !matchStatus.opponentConnected &&
+      (uiScreen === "make" || uiScreen === "join" || uiScreen === "waiting")
+    ) {
+      setUiScreen("waiting");
+    }
+    if (
+      versusModeRef.current &&
+      matchStatus.roomCode &&
+      matchStatus.opponentConnected &&
+      (uiScreen === "waiting" || uiScreen === "make" || uiScreen === "join")
+    ) {
+      setUiScreen("ready");
+      playUiSfx("confirm");
+      window.setTimeout(() => {
+        setUiScreen("duel");
+        setShowLab(true);
+      }, 1800);
+    }
   }, [
     matchStatus.roomCode,
     matchStatus.isHost,
     matchStatus.identityHex,
     matchStatus.opponentConnected,
+    uiScreen,
   ]);
+
+  useEffect(() => {
+    if (uiScreen === "duel" && initialUiScreen() === "duel") {
+      // Lab deep-link: start countdown once assets are up.
+      const id = window.setInterval(() => {
+        const game = gameRef.current;
+        if (!game) return;
+        if (game.getMatchPhase() === "Idle" && status.player === "ready" && status.dummy === "ready") {
+          game.beginDuelSession();
+          window.clearInterval(id);
+        }
+      }, 250);
+      return () => window.clearInterval(id);
+    }
+    return undefined;
+  }, [uiScreen, status.player, status.dummy]);
 
   const loadSummary = useMemo(
     () => [
@@ -312,6 +396,7 @@ function DesktopApp(): ReactElement {
   };
 
   const joinMatch = () => {
+    playUiSfx("confirm");
     void matchClientRef.current?.join(matchCode);
   };
 
@@ -330,7 +415,45 @@ function DesktopApp(): ReactElement {
     setCombatFrozen(false);
     setHitCount(0);
     setHitFlashKey(0);
+    setRoundBanner(null);
+    setMatchWinner(null);
     lastHudOutcomeSeqRef.current = -1;
+    versusModeRef.current = false;
+  };
+
+  const enterPractice = () => {
+    playUiSfx("confirm");
+    versusModeRef.current = false;
+    setUiScreen("duel");
+    setShowLab(true);
+    setHitCount(0);
+    setRoundBanner(null);
+    window.setTimeout(() => gameRef.current?.beginDuelSession(), 50);
+  };
+
+  const enterVersus = () => {
+    playUiSfx("confirm");
+    versusModeRef.current = true;
+    setUiScreen("make");
+  };
+
+  const startMakeRoom = () => {
+    playUiSfx("confirm");
+    const code = createRoomCode();
+    setMatchCode(code);
+    void matchClientRef.current?.join(code);
+    setUiScreen("waiting");
+  };
+
+  const openJoinScreen = () => {
+    playUiSfx("confirm");
+    setUiScreen("join");
+  };
+
+  const confirmJoin = () => {
+    playUiSfx("confirm");
+    void matchClientRef.current?.join(matchCode);
+    setUiScreen("waiting");
   };
 
   const newMatchCode = () => {
@@ -385,29 +508,227 @@ function DesktopApp(): ReactElement {
   const inMatch = Boolean(matchStatus.roomCode && matchStatus.opponentConnected);
 
   const dismissRingout = () => {
-    if (inMatch) {
-      leaveMatch();
-    } else {
-      gameRef.current?.resetSoloDuel();
+    const hud = gameRef.current?.getCombatHud();
+    const matchOver = Boolean(hud?.matchWinner) || hud?.phase === "MatchEnd";
+
+    if (matchOver) {
+      if (inMatch) leaveMatch();
+      else gameRef.current?.resetSoloDuel();
+      setCombatFrozen(false);
+      setCombatWinnerHex(null);
+      setLastCombatOutcome(null);
+      setLastMissReason(null);
+      setHitCount(0);
+      setHitFlashKey(0);
+      setRoundBanner(null);
+      setMatchWinner(null);
+      setUiScreen("menu");
+      setShowLab(false);
+      lastHudOutcomeSeqRef.current = gameRef.current?.getCombatHud().lastOutcomeSeq ?? -1;
+      return;
     }
+
+    // Best-of-3 continues — next round intro.
     setCombatFrozen(false);
     setCombatWinnerHex(null);
     setLastCombatOutcome(null);
     setLastMissReason(null);
     setHitCount(0);
     setHitFlashKey(0);
+    setRoundBanner(null);
+    gameRef.current?.beginNextRound();
     lastHudOutcomeSeqRef.current = gameRef.current?.getCombatHud().lastOutcomeSeq ?? -1;
   };
+
+  const inDuel = uiScreen === "duel";
+  const showMenus = uiScreen !== "duel";
+  const localIsP1 = !inMatch || matchStatus.isHost;
+  const scoreLeft = localIsP1 ? p1Wins : p2Wins;
+  const scoreRight = localIsP1 ? p2Wins : p1Wins;
+  const labelLeft = localIsP1 ? "P1" : "P2";
+  const labelRight = localIsP1 ? "P2" : "P1";
 
   return (
     <main className="app-shell">
       <canvas ref={canvasRef} className="game-canvas" aria-label="Chambara 3D dojo" />
 
+      {showMenus ? (
+        <div className="ui-screen-layer" aria-label="Game menus">
+          {uiScreen === "title" ? (
+            <button
+              type="button"
+              className="ui-fullbleed ui-title"
+              aria-label="Start"
+              onClick={() => {
+                playUiSfx("confirm");
+                setUiScreen("menu");
+              }}
+            >
+              <img src="/ui/title_chambara.png" alt="Chambara" className="ui-fullbleed-img" />
+            </button>
+          ) : null}
+
+          {uiScreen === "menu" ? (
+            <div className="ui-fullbleed ui-menu" style={{ backgroundImage: "url(/ui/background.png)" }}>
+              <div className="ui-menu-stack" role="menu">
+                {(
+                  [
+                    ["versus", "Versus"],
+                    ["practice", "Practice"],
+                    ["settings", "Settings"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitem"
+                    className="ui-menu-hit"
+                    aria-label={label}
+                    onMouseEnter={() => setMenuFocus(id)}
+                    onFocus={() => setMenuFocus(id)}
+                    onClick={() => {
+                      if (id === "practice") enterPractice();
+                      else if (id === "versus") enterVersus();
+                      else playUiSfx("text");
+                    }}
+                  >
+                    <img
+                      src={`/ui/menu/${id}_${menuFocus === id ? "w" : "b"}.png`}
+                      alt={label}
+                      draggable={false}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {uiScreen === "make" ? (
+            <div className="ui-fullbleed ui-make-join">
+              <img src="/ui/make.png" alt="Make room" className="ui-fullbleed-img" />
+              <div className="ui-make-join-actions">
+                <button type="button" className="ui-hit-zone ui-hit-primary" aria-label="Make room" onClick={startMakeRoom} />
+                <button type="button" className="ui-hit-zone ui-hit-secondary" aria-label="Join instead" onClick={openJoinScreen} />
+                <button
+                  type="button"
+                  className="ui-hit-zone ui-hit-back"
+                  aria-label="Back"
+                  onClick={() => {
+                    playUiSfx("cancel");
+                    setUiScreen("menu");
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {uiScreen === "join" ? (
+            <div className="ui-fullbleed ui-make-join">
+              <img src="/ui/join.png" alt="Join room" className="ui-fullbleed-img" />
+              <div className="ui-join-form">
+                <input
+                  aria-label="Match code"
+                  value={matchCode}
+                  onChange={(event) =>
+                    setMatchCode(
+                      event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+                    )
+                  }
+                  maxLength={6}
+                  spellCheck={false}
+                />
+                <button type="button" className="ui-text-button" onClick={confirmJoin}>
+                  Join
+                </button>
+                <button
+                  type="button"
+                  className="ui-text-button ui-text-button-ghost"
+                  onClick={() => {
+                    playUiSfx("cancel");
+                    setUiScreen("make");
+                  }}
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {uiScreen === "waiting" ? (
+            <div className="ui-fullbleed ui-waiting" style={{ backgroundImage: "url(/ui/background_gray.png)" }}>
+              <p className="ui-waiting-code">{matchCode}</p>
+              <p className="ui-waiting-copy">Waiting for opponent…</p>
+              <p className="ui-waiting-note">Lobby art coming soon</p>
+              <button
+                type="button"
+                className="ui-text-button"
+                onClick={() => {
+                  playUiSfx("cancel");
+                  leaveMatch();
+                  setUiScreen("make");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : null}
+
+          {uiScreen === "ready" ? (
+            <div className="ui-fullbleed ui-ready">
+              <img src="/ui/lobby_found/versus_bg.gif" alt="" className="ui-fullbleed-img" aria-hidden />
+              <img src="/ui/lobby_found/girl_vs.gif" alt="Versus" className="ui-ready-vs" />
+              <img src="/ui/ready.png" alt="Ready" className="ui-ready-banner" />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {inDuel && countdownLabel ? (
+        <div className="countdown-overlay" aria-live="assertive">
+          <span className="countdown-digit">{countdownLabel}</span>
+        </div>
+      ) : null}
+
+      {inDuel ? (
+        <section className="fight-hud" aria-label="Match HUD">
+          <div className="fight-hud-round">ROUND {roundIndex}</div>
+          <div className="fight-hud-scores">
+            <div className="fight-score">
+              <span>{labelLeft}</span>
+              <strong>{scoreLeft}</strong>
+            </div>
+            <div className="fight-score-divider">BEST OF 3</div>
+            <div className="fight-score">
+              <span>{labelRight}</span>
+              <strong>{scoreRight}</strong>
+            </div>
+          </div>
+          <div className="diagnostic-row fight-phase-row">
+            <span>PHASE</span>
+            <strong>{matchPhase.toUpperCase()}</strong>
+          </div>
+          {roundBanner ? <p className="fight-round-banner">{roundBanner}</p> : null}
+          {matchWinner ? (
+            <p className="fight-round-banner">
+              MATCH {(matchWinner === "p1") === localIsP1 ? "WIN" : "LOST"}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {combatFrozen ? (
         <div className={"ringout-celebration" + (localWon ? " ringout-win" : " ringout-lose")} role="dialog" aria-label="Ring out result">
           <div className="ringout-burst" aria-hidden="true" />
-          <p className="ringout-eyebrow">{localWon ? "RING OUT" : "RING OUT"}</p>
-          <h2 className="ringout-title">{localWon ? "YOU WIN" : "YOU LOSE"}</h2>
+          <p className="ringout-eyebrow">{matchWinner ? "MATCH" : "RING OUT"}</p>
+          <h2 className="ringout-title">
+            {matchWinner
+              ? localWon
+                ? "YOU WIN THE MATCH"
+                : "MATCH LOST"
+              : localWon
+                ? "YOU WIN THE ROUND"
+                : "ROUND LOST"}
+          </h2>
           <p className="ringout-sub">
             {localWon
               ? inMatch
@@ -415,25 +736,36 @@ function DesktopApp(): ReactElement {
                 : "The dummy is out — clean consecutive connects."
               : "You were pushed past the arena rim."}
           </p>
-          <p className="ringout-hits">HITS THIS ROUND · {hitCount}</p>
+          <p className="ringout-hits">
+            SCORE · {scoreLeft} – {scoreRight} · HITS {hitCount}
+          </p>
           <button className="ringout-button" type="button" onClick={dismissRingout}>
-            {inMatch ? "Leave match" : "Fight again"}
+            {matchWinner ? (inMatch ? "Leave match" : "Back to menu") : "Next round"}
           </button>
         </div>
       ) : null}
 
+      {inDuel ? (
       <section className="hud hud-top" aria-label="Prototype header">
         <div>
-          <p className="eyebrow">LUNA MAX // V05 WEAPON SOLVER</p>
-          <h1>Chambara Weapon Lab</h1>
-          <p className="subtitle">
-            Circular guard poses, accelerometer slashes, and
-            two-hand IK. Combat authority remains out of scope.
-          </p>
+          <p className="eyebrow">CHAMBARA</p>
+          <h1>Duel</h1>
+          <p className="subtitle">Best of 3 · soft-edge ring-outs · {labelLeft} / {labelRight}</p>
         </div>
-        <div className="mode-chip"><span className="pulse" /> WEAPON POSE PROTOTYPE</div>
+        <div className="hud-top-actions">
+          <button
+            type="button"
+            className="small-button"
+            onClick={() => setShowLab((v) => !v)}
+          >
+            {showLab ? "Hide lab" : "Show lab"}
+          </button>
+          <div className="mode-chip"><span className="pulse" /> {matchPhase.toUpperCase()}</div>
+        </div>
       </section>
+      ) : null}
 
+      {inDuel && showLab ? (
       <aside className="hud inspector-panel" aria-label="Motion lab controls">
         <div className="panel-heading">
           <div>
@@ -764,11 +1096,14 @@ function DesktopApp(): ReactElement {
           </div>
         )}
       </aside>
+      ) : null}
 
+      {inDuel ? (
       <footer className="hud footer-note">
         <span>Fixed simulation: {SIM_DT.toFixed(5)} s step</span>
         <span>Phone URL: /controller?room={room} · Keys 1–0, Q, W play clips · R resets · D toggles camera</span>
       </footer>
+      ) : null}
     </main>
   );
 }

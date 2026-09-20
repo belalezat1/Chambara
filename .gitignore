@@ -10,3 +10,6 @@ game/playwright_images
 game/.env
 game/package-lock.json
 game/.tools/
+
+# Local Playwright browser installs (never commit)
+game/.playwright-browsers/

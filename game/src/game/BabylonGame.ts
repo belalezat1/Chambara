@@ -43,10 +43,12 @@ import {
 import { AnimationController, type AnimationPlayOptions } from "./animation/AnimationController";
 import {
   ARENA_RADIUS,
+  BLOCK_ATTACKER_STUN_SECONDS,
   HIT_INVULN_MS,
   SEAT_HALF_SPACING,
   STUN_SECONDS,
   type CombatOutcomeKind,
+  type MatchPhase,
 } from "./combat/CombatConstants";
 import { bladeHitsBody } from "./combat/CombatCollision";
 import {
@@ -58,6 +60,7 @@ import {
   stepRegroup,
   type RootPair,
 } from "./combat/CombatFootwork";
+import { MatchPhaseMachine, type MatchPhaseHud } from "./combat/MatchPhaseMachine";
 import { isInHitWindow, resolveCombat, type FighterSnapshot } from "./combat/CombatResolver";
 import { estimateRemoteBladePose, pickAttackerBladePose } from "./combat/CombatRemoteBlade";
 import { advanceSlashArming } from "./combat/CombatSlashArming";
@@ -513,6 +516,7 @@ const REMOTE_DUMMY_POSITION = new Vector3(SEAT_HALF_SPACING, 0, 0);
 const REMOTE_DUMMY_ROTATION_Y = -Math.PI / 2;
 const FOLLOW_CAMERA_HEIGHT = 1.62;
 const FOLLOW_CAMERA_DISTANCE = 1.0;
+const FOLLOW_CAMERA_STUN_DISTANCE = 1.55;
 const FOLLOW_CAMERA_SIDE_OFFSET = 0.08;
 const FOLLOW_CAMERA_LOOK_HEIGHT = 1.12;
 const FOLLOW_CAMERA_LOOK_AHEAD = 1.35;
@@ -520,6 +524,7 @@ const FOLLOW_CAMERA_DAMPING = 10;
 const LOCAL_UPPER_BODY_OPACITY = 0.03;
 const LOCAL_LEG_OPACITY = 0.05;
 const LOCAL_HAND_OPACITY = 1;
+const LOCAL_STUN_BODY_OPACITY = 1;
 const LOCAL_HAND_OUTLINE_WIDTH = 0.008;
 const LOCAL_SWORD_OUTLINE_WIDTH = 0.006;
 
@@ -582,12 +587,94 @@ export class BabylonGame {
   /** Authoritative duel-axis seats — reapplied after clips so anims cannot undo knockback. */
   private playerCombatX = -SEAT_HALF_SPACING;
   private dummyCombatX = SEAT_HALF_SPACING;
+  private readonly matchPhase = new MatchPhaseMachine();
+  private duelSessionActive = false;
+  private localBodyOpacityMeshes: AbstractMesh[] = [];
+  private localBodyOpaque = false;
+  private lastLocalStunActive = false;
+
+  /** True only during Fighting — gates slash resolve and Test slash. */
+  isCombatOpen(): boolean {
+    return this.matchPhase.combatOpen && !this.matchFrozen;
+  }
+
+  getMatchPhaseHud(): MatchPhaseHud {
+    return this.matchPhase.hud();
+  }
+
+  getMatchPhase(): MatchPhase {
+    return this.matchPhase.phase;
+  }
+
+  /**
+   * Start or restart intro → countdown → walk-in → Fighting.
+   * Used for solo practice and when a PvP opponent connects.
+   */
+  beginDuelSession(): void {
+    this.duelSessionActive = true;
+    this.matchFrozen = false;
+    this.combatWinnerHex = null;
+    this.lastCombatOutcome = null;
+    this.lastMissReason = null;
+    this.regroupTarget = null;
+    this.clearLungeState();
+    this.playerOnSoftEdge = false;
+    this.dummyOnSoftEdge = false;
+    this.playerInvulnUntil = 0;
+    this.dummyInvulnUntil = 0;
+    this.localStunUntil = 0;
+    this.setLocalBodyOpaque(false);
+    const snap = this.matchPhase.startMatch();
+    this.playerCombatX = snap.playerX;
+    this.dummyCombatX = snap.dummyX;
+    this.applyCombatSeats();
+    this.rebindWeaponAfterSeatChange();
+    this.player?.controller.play("CombatIdle");
+    this.dummy?.controller.play("CombatIdle");
+  }
+
+  /** Between rounds after a ring-out (best-of-3 continues). */
+  beginNextRound(): boolean {
+    const snap = this.matchPhase.startNextRound();
+    if (!snap) return false;
+    this.matchFrozen = false;
+    this.combatWinnerHex = null;
+    this.lastCombatOutcome = null;
+    this.lastMissReason = null;
+    this.regroupTarget = null;
+    this.clearLungeState();
+    this.playerOnSoftEdge = false;
+    this.dummyOnSoftEdge = false;
+    this.playerInvulnUntil = 0;
+    this.dummyInvulnUntil = 0;
+    this.localStunUntil = 0;
+    this.setLocalBodyOpaque(false);
+    this.lastSoloResolvedSlashSeq = -1;
+    this.lastResolvedSlashKey = "";
+    this.playerCombatX = snap.playerX;
+    this.dummyCombatX = snap.dummyX;
+    this.applyCombatSeats();
+    this.rebindWeaponAfterSeatChange();
+    this.player?.controller.play("CombatIdle");
+    this.dummy?.controller.play("CombatIdle");
+    return true;
+  }
+
+  private clearLungeState(): void {
+    this.lungeActive = false;
+    this.lungeRecovering = false;
+    this.lungeHitConnected = false;
+    this.remoteLungeActive = false;
+    this.remoteLungeRecovering = false;
+    this.remoteLungeHitConnected = false;
+  }
 
   testSlash(): boolean {
     if (
       !this.status.motion.weaponControlEnabled ||
       this.status.motion.blocking ||
       this.matchFrozen ||
+      !this.isCombatOpen() ||
       performance.now() < this.localStunUntil
     ) {
       return false;
@@ -604,6 +691,7 @@ export class BabylonGame {
     localIdentityHex: string | null;
     remoteIdentityHex: string | null;
   }): void {
+    const wasActive = this.matchCombatActive;
     this.matchCombatActive = options.active && Boolean(options.remoteIdentityHex);
     this.matchIsHost = options.isHost;
     this.localIdentityHex = options.localIdentityHex;
@@ -619,12 +707,15 @@ export class BabylonGame {
       this.lastResolvedSlashKey = "";
       this.lastAppliedOutcomeSeq = -1;
       this.pendingHostCombatOutcome = null;
-      this.remoteLungeActive = false;
-      this.remoteLungeRecovering = false;
-      this.remoteLungeHitConnected = false;
+      this.clearLungeState();
+      this.duelSessionActive = false;
+      this.matchPhase.resetIdle();
       this.playerCombatX = -SEAT_HALF_SPACING;
       this.dummyCombatX = SEAT_HALF_SPACING;
       this.applyCombatSeats();
+      this.setLocalBodyOpaque(false);
+    } else if (this.matchCombatActive && !wasActive) {
+      this.beginDuelSession();
     }
   }
 
@@ -665,18 +756,34 @@ export class BabylonGame {
     lastMissReason: "out_of_window" | "invuln" | "no_contact" | null;
     winnerHex: string | null;
     frozen: boolean;
+    phase: MatchPhase;
+    countdownLabel: string | null;
+    roundIndex: number;
+    p1Wins: number;
+    p2Wins: number;
+    matchWinner: "p1" | "p2" | null;
+    combatOpen: boolean;
   } {
+    const phaseHud = this.matchPhase.hud();
     return {
       lastOutcome: this.lastCombatOutcome,
       lastOutcomeSeq: this.lastAppliedOutcomeSeq,
       lastMissReason: this.lastMissReason,
       winnerHex: this.combatWinnerHex,
       frozen: this.matchFrozen,
+      phase: phaseHud.phase,
+      countdownLabel: phaseHud.countdownLabel,
+      roundIndex: phaseHud.roundIndex,
+      p1Wins: phaseHud.p1Wins,
+      p2Wins: phaseHud.p2Wins,
+      matchWinner: phaseHud.matchWinner,
+      combatOpen: phaseHud.combatOpen,
     };
   }
 
   tryHostResolveCombat(): CombatOutcomeEvent | null {
     if (!this.matchCombatActive || !this.matchIsHost || this.matchFrozen) return null;
+    if (!this.isCombatOpen()) return null;
     if (!this.localIdentityHex || !this.remoteIdentityHex || !this.remoteIntent) return null;
     if (!this.player || !this.dummy) return null;
 
@@ -775,6 +882,7 @@ export class BabylonGame {
    */
   tickSoloDummyCombat(): CombatOutcomeEvent | null {
     if (this.matchCombatActive || this.matchFrozen) return null;
+    if (!this.duelSessionActive || !this.isCombatOpen()) return null;
     if (!this.player || !this.dummy) return null;
     if (this.localSlashSeq <= this.lastSoloResolvedSlashSeq) return null;
 
@@ -942,6 +1050,8 @@ export class BabylonGame {
         this.dummy?.controller.play("AdvanceAfterHit");
         this.player?.controller.play("HitKnockback");
         this.playerInvulnUntil = now + HIT_INVULN_MS;
+        this.localStunUntil = now + STUN_SECONDS * 1000;
+        this.setLocalBodyOpaque(true);
       }
       this.regroupTarget = regroupTargets(
         {
@@ -950,6 +1060,7 @@ export class BabylonGame {
         },
         localIsActor || outcome.actorIdentityHex === "local",
       );
+      this.rebindWeaponAfterSeatChange();
     } else if (outcome.kind === "clash") {
       this.lungeHitConnected = true;
       this.lungeActive = false;
@@ -961,6 +1072,8 @@ export class BabylonGame {
       this.dummy?.controller.play("HitKnockback");
       this.playerInvulnUntil = now + STUN_SECONDS * 1000;
       this.dummyInvulnUntil = now + STUN_SECONDS * 1000;
+      this.localStunUntil = now + STUN_SECONDS * 1000;
+      this.setLocalBodyOpaque(true);
       window.setTimeout(() => {
         this.player?.controller.play("AdvanceAfterHit");
         this.dummy?.controller.play("AdvanceAfterHit");
@@ -973,25 +1086,28 @@ export class BabylonGame {
         },
         true,
       );
+      this.rebindWeaponAfterSeatChange();
     } else if (outcome.kind === "blocked") {
       if (localIsActor) {
+        // Attacker stunned; blocker stays free (no stun / no invuln lock).
         this.lungeHitConnected = true;
         this.lungeActive = false;
         this.lungeRecovering = false;
         this.remoteLungeActive = false;
         this.remoteLungeRecovering = false;
         this.player?.controller.play("BlockedStun");
-        this.localStunUntil = now + STUN_SECONDS * 1000;
-        this.playerInvulnUntil = now + STUN_SECONDS * 1000;
+        this.localStunUntil = now + BLOCK_ATTACKER_STUN_SECONDS * 1000;
+        this.playerInvulnUntil = now + BLOCK_ATTACKER_STUN_SECONDS * 1000;
+        this.setLocalBodyOpaque(true);
         this.dummy?.controller.play("BlockIdle");
       } else {
+        // Local is blocker — never stunned; free to retaliate immediately.
         this.remoteLungeHitConnected = true;
         this.remoteLungeActive = false;
         this.remoteLungeRecovering = false;
         this.lungeActive = false;
         this.lungeRecovering = false;
         this.dummy?.controller.play("BlockedStun");
-        this.dummyInvulnUntil = now + STUN_SECONDS * 1000;
         this.player?.controller.play("BlockIdle");
       }
       this.regroupTarget = regroupTargets(
@@ -1001,18 +1117,27 @@ export class BabylonGame {
         },
         localIsActor || outcome.actorIdentityHex === "local",
       );
+      this.rebindWeaponAfterSeatChange();
     } else if (outcome.kind === "ringout") {
       this.matchFrozen = true;
       this.combatWinnerHex = outcome.winnerIdentityHex;
       this.regroupTarget = null;
-      this.lungeActive = false;
-      this.lungeRecovering = false;
-      this.remoteLungeActive = false;
-      this.remoteLungeRecovering = false;
-      if (
+      this.clearLungeState();
+      const localWon =
         outcome.winnerIdentityHex === this.localIdentityHex ||
-        outcome.winnerIdentityHex === "local"
-      ) {
+        outcome.winnerIdentityHex === "local";
+      if (this.duelSessionActive) {
+        const winnerSeat: "p1" | "p2" =
+          this.matchCombatActive && !this.matchIsHost
+            ? localWon
+              ? "p2"
+              : "p1"
+            : localWon
+              ? "p1"
+              : "p2";
+        this.matchPhase.onRingOut(winnerSeat);
+      }
+      if (localWon) {
         this.player?.controller.play("CombatIdle");
         this.dummy?.controller.play("HitKnockback");
       } else {
@@ -1054,31 +1179,17 @@ export class BabylonGame {
     }
   }
 
+  /** Re-solve grip/tip after large seat jumps (knockback, walk-in, stun). */
+  private rebindWeaponAfterSeatChange(): void {
+    this.applyCombatSeats();
+    this.refreshWeaponTipForCombatSeats();
+  }
+
   /** Reset seats / freeze after solo ring-out so the dummy duel can restart. */
   resetSoloDuel(): void {
-    this.matchFrozen = false;
-    this.combatWinnerHex = null;
-    this.lastCombatOutcome = null;
-    this.lastMissReason = null;
-    this.regroupTarget = null;
-    this.lungeActive = false;
-    this.lungeRecovering = false;
-    this.lungeHitConnected = false;
-    this.remoteLungeActive = false;
-    this.remoteLungeRecovering = false;
-    this.remoteLungeHitConnected = false;
-    this.playerOnSoftEdge = false;
-    this.dummyOnSoftEdge = false;
-    this.playerInvulnUntil = 0;
-    this.dummyInvulnUntil = 0;
-    this.localStunUntil = 0;
+    this.beginDuelSession();
     this.lastSoloResolvedSlashSeq = -1;
     this.lastResolvedSlashKey = "";
-    this.playerCombatX = -SEAT_HALF_SPACING;
-    this.dummyCombatX = SEAT_HALF_SPACING;
-    this.applyCombatSeats();
-    this.player?.controller.play("CombatIdle");
-    this.dummy?.controller.play("CombatIdle");
   }
 
   getCombatSeats(): { playerX: number; dummyX: number } {
@@ -1517,9 +1628,11 @@ export class BabylonGame {
       : LOCAL_PLAYER_POSITION;
     const forward = root ? this.fighterForward(root) : new Vector3(1, 0, 0);
     const right = Vector3.Cross(Vector3.Up(), forward).normalize();
+    const stunned = performance.now() < this.localStunUntil;
+    const camDistance = stunned ? FOLLOW_CAMERA_STUN_DISTANCE : FOLLOW_CAMERA_DISTANCE;
     const desiredPosition = origin
       .add(Vector3.Up().scale(FOLLOW_CAMERA_HEIGHT))
-      .subtract(forward.scale(FOLLOW_CAMERA_DISTANCE))
+      .subtract(forward.scale(camDistance))
       .add(right.scale(FOLLOW_CAMERA_SIDE_OFFSET));
     const desiredTarget = origin
       .add(Vector3.Up().scale(FOLLOW_CAMERA_LOOK_HEIGHT))
@@ -1536,6 +1649,7 @@ export class BabylonGame {
 
   /** Fade the local avatar without fading its weapon, which must remain readable. */
   private makeLocalBodyTranslucent(meshes: AbstractMesh[]): void {
+    this.localBodyOpacityMeshes = [];
     const belongsToWeapon = (mesh: AbstractMesh): boolean => {
       let node: TransformNode | null = mesh;
       while (node) {
@@ -1585,7 +1699,49 @@ export class BabylonGame {
       configureOpacity(material, opacityForMesh(mesh));
       mesh.material = material;
       mesh.visibility = 1;
+      this.localBodyOpacityMeshes.push(mesh);
     }
+    this.localBodyOpaque = false;
+  }
+
+  /** Opaque body while local is hit/block-stunned; weapon stays visible either way. */
+  private setLocalBodyOpaque(opaque: boolean): void {
+    if (this.localBodyOpaque === opaque) return;
+    this.localBodyOpaque = opaque;
+    const opacityForMesh = (mesh: AbstractMesh): number => {
+      if (opaque) return LOCAL_STUN_BODY_OPACITY;
+      const name = mesh.name.toLowerCase();
+      if (/hand|thumb|forearm|lower_arm/.test(name)) return LOCAL_HAND_OPACITY;
+      if (/pelvis|thigh|shin|hakama|shoe/.test(name)) return LOCAL_LEG_OPACITY;
+      return LOCAL_UPPER_BODY_OPACITY;
+    };
+    for (const mesh of this.localBodyOpacityMeshes) {
+      const material = mesh.material;
+      if (!material) continue;
+      const opacity = opacityForMesh(mesh);
+      material.alpha = opacity;
+      material.transparencyMode = opacity >= 0.999
+        ? Material.MATERIAL_OPAQUE
+        : Material.MATERIAL_ALPHABLEND;
+      material.forceDepthWrite = opacity >= 0.999;
+      if (material instanceof MultiMaterial) {
+        for (const child of material.subMaterials) {
+          if (!child) continue;
+          child.alpha = opacity;
+          child.transparencyMode = opacity >= 0.999
+            ? Material.MATERIAL_OPAQUE
+            : Material.MATERIAL_ALPHABLEND;
+          child.forceDepthWrite = opacity >= 0.999;
+        }
+      }
+    }
+  }
+
+  private syncLocalStunPresentation(): void {
+    const stunned = performance.now() < this.localStunUntil;
+    if (stunned === this.lastLocalStunActive) return;
+    this.lastLocalStunActive = stunned;
+    if (!stunned) this.setLocalBodyOpaque(false);
   }
 
   private createLights(): void {
@@ -2487,6 +2643,20 @@ export class BabylonGame {
     this.status.motion.poseState = this.poseState;
     this.status.motion.targetPoseState = this.targetPoseState;
     this.status.motion.reachFraction = this.reachFraction;
+
+    if (this.duelSessionActive && !this.matchFrozen) {
+      const phaseSnap = this.matchPhase.tick(dt);
+      if (phaseSnap) {
+        this.playerCombatX = phaseSnap.playerX;
+        this.dummyCombatX = phaseSnap.dummyX;
+        this.applyCombatSeats();
+        if (phaseSnap.phase === "WalkIn" || phaseSnap.phase === "Fighting") {
+          this.rebindWeaponAfterSeatChange();
+        }
+      }
+    }
+    this.syncLocalStunPresentation();
+
     // Slash step → lunge seats → refresh tip on lunged root → hit resolve.
     this.driveControllerMotion(dt);
     this.updateMatchCombatMotion(dt);
@@ -2633,6 +2803,21 @@ export class BabylonGame {
     if (!this.player || !this.dummy) return;
     if (this.matchFrozen) return;
 
+    if (!this.isCombatOpen()) {
+      this.applyCombatSeats();
+      const playerX = this.playerCombatX;
+      const dummyX = this.dummyCombatX;
+      this.player.root.rotationQuaternion = Quaternion.RotationAxis(
+        Vector3.Up(),
+        faceYawRadians(playerX, dummyX),
+      );
+      this.dummy.root.rotationQuaternion = Quaternion.RotationAxis(
+        Vector3.Up(),
+        faceYawRadians(dummyX, playerX),
+      );
+      return;
+    }
+
     // Mid-slash lunge + miss recover. Lunge must run even while regrouping —
     // otherwise post-hit swings stay out of blade reach.
     if (this.lungeActive && !this.lungeHitConnected) {
@@ -2663,7 +2848,7 @@ export class BabylonGame {
     }
     this.prevSwordPhase = this.circleSword.phase;
 
-    // Remote (dummy-seat) lunge mirrors local close so PvP reach works at 2.2 m.
+    // Remote (dummy-seat) lunge mirrors local close so PvP reach works at preferred spacing.
     if (this.remoteLungeActive && !this.remoteLungeHitConnected) {
       const now = performance.now();
       const remoteProgress = this.estimateRemoteSlashProgress(now);
@@ -2763,12 +2948,12 @@ export class BabylonGame {
     const publisherRoot = Matrix.Compose(
       Vector3.One(),
       Quaternion.RotationAxis(Vector3.Up(), LOCAL_PLAYER_ROTATION_Y),
-      LOCAL_PLAYER_POSITION,
+      new Vector3(this.playerCombatX, 0, 0),
     );
     const localDummyRoot = Matrix.Compose(
       Vector3.One(),
       Quaternion.RotationAxis(Vector3.Up(), REMOTE_DUMMY_ROTATION_Y),
-      REMOTE_DUMMY_POSITION,
+      new Vector3(this.dummyCombatX, 0, 0),
     );
     const gripLocal = Vector3.TransformCoordinates(position, Matrix.Invert(publisherRoot));
     const mappedPosition = Vector3.TransformCoordinates(gripLocal, localDummyRoot);
@@ -2812,7 +2997,10 @@ export class BabylonGame {
     // While blocking: circle X free, Y forced high so guard angle is lateral-only.
     this.circleSword.aim(aimX, blocking ? BLOCK_AIM_Y : inputForward.y);
     const slashCount = sample.slashCount ?? 0;
-    const stunned = this.matchFrozen || performance.now() < this.localStunUntil;
+    const stunned =
+      this.matchFrozen ||
+      !this.isCombatOpen() ||
+      performance.now() < this.localStunUntil;
     if (slashCount > this.lastSlashCount) {
       // Probe slash() only when we might arm; blocking/stun skips the call.
       const slashAccepted =

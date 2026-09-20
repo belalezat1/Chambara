@@ -1,0 +1,67 @@
+browserType.launch: Target page, context or browser has been closed
+Browser logs:
+
+<launching> /Users/b/Projects/Chambara/game/.playwright-browsers/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --use-gl=angle --enable-webgl --ignore-gpu-blocklist --user-data-dir=/var/folders/j_/f4bm68s50_d3hkqhkxt010300000gn/T/playwright_chromiumdev_profile-Jr87Dn --remote-debugging-pipe --no-startup-window
+<launched> pid=24900
+[pid=24900][err] Received signal 11 SEGV_ACCERR 000000000010
+[pid=24900][err]  [0x000104f9e980]
+[pid=24900][err]  [0x000107b7f204]
+[pid=24900][err]  [0x00018e3ec140]
+[pid=24900][err]  [0x0001049c5180]
+[pid=24900][err]  [0x0001049c5180]
+[pid=24900][err]  [0x00010410c404]
+[pid=24900][err]  [0x000103873620]
+[pid=24900][err]  [0x000105410218]
+[pid=24900][err]  [0x000105410e20]
+[pid=24900][err]  [0x00018e00be7c]
+[pid=24900][err] [end of stack trace]
+Call log:
+  - <launching> /Users/b/Projects/Chambara/game/.playwright-browsers/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --use-gl=angle --enable-webgl --ignore-gpu-blocklist --user-data-dir=/var/folders/j_/f4bm68s50_d3hkqhkxt010300000gn/T/playwright_chromiumdev_profile-Jr87Dn --remote-debugging-pipe --no-startup-window
+  - <launched> pid=24900
+  - [pid=24900][err] Received signal 11 SEGV_ACCERR 000000000010
+  - [pid=24900][err]  [0x000104f9e980]
+  - [pid=24900][err]  [0x000107b7f204]
+  - [pid=24900][err]  [0x00018e3ec140]
+  2 × [pid=24900][err]  [0x0001049c5180]
+  - [pid=24900][err]  [0x00010410c404]
+  - [pid=24900][err]  [0x000103873620]
+  - [pid=24900][err]  [0x000105410218]
+  - [pid=24900][err]  [0x000105410e20]
+  - [pid=24900][err]  [0x00018e00be7c]
+  - [pid=24900][err] [end of stack trace]
+  - [pid=24900] <gracefully close start>
+  - [pid=24900] <kill>
+  - [pid=24900] <will force kill>
+  - [pid=24900] exception while trying to kill process: Error: kill EPERM
+  - [pid=24900] <process did exit: exitCode=null, signal=SIGSEGV>
+  - [pid=24900] starting temporary directories cleanup
+  - [pid=24900] finished temporary directories cleanup
+  - [pid=24900] <gracefully close end>
+
+    at main (/Users/b/Projects/Chambara/game/scripts/solo-hit-browser.mjs:40:34)
+    at /Users/b/Projects/Chambara/game/scripts/solo-hit-browser.mjs:129:1 {
+  log: [
+    '  - <launching> /Users/b/Projects/Chambara/game/.playwright-browsers/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --use-gl=angle --enable-webgl --ignore-gpu-blocklist --user-data-dir=/var/folders/j_/f4bm68s50_d3hkqhkxt010300000gn/T/playwright_chromiumdev_profile-Jr87Dn --remote-debugging-pipe --no-startup-window',
+    '  - <launched> pid=24900',
+    '  - [pid=24900][err] Received signal 11 SEGV_ACCERR 000000000010',
+    '  - [pid=24900][err]  [0x000104f9e980]',
+    '  - [pid=24900][err]  [0x000107b7f204]',
+    '  - [pid=24900][err]  [0x00018e3ec140]',
+    '  2 × [pid=24900][err]  [0x0001049c5180]',
+    '  - [pid=24900][err]  [0x00010410c404]',
+    '  - [pid=24900][err]  [0x000103873620]',
+    '  - [pid=24900][err]  [0x000105410218]',
+    '  - [pid=24900][err]  [0x000105410e20]',
+    '  - [pid=24900][err]  [0x00018e00be7c]',
+    '  - [pid=24900][err] [end of stack trace]',
+    '  - [pid=24900] <gracefully close start>',
+    '  - [pid=24900] <kill>',
+    '  - [pid=24900] <will force kill>',
+    '  - [pid=24900] exception while trying to kill process: Error: kill EPERM',
+    '  - [pid=24900] <process did exit: exitCode=null, signal=SIGSEGV>',
+    '  - [pid=24900] starting temporary directories cleanup',
+    '  - [pid=24900] finished temporary directories cleanup',
+    '  - [pid=24900] <gracefully close end>'
+  ]
+}
+SOLO_HIT_EXIT:2

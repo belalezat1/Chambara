@@ -27,7 +27,7 @@ export function estimateCombatBladePose(args: {
   const { rootX, opponentX, slashProgress, guardX, guardY } = args;
   const toward = Math.sign(opponentX - rootX) || -1;
   const factor = lungeFactorFromSlashProgress(slashProgress);
-  // Mid-cut tip ~0.8 m toward opponent — connects after full lunge, misses at idle 2.2 m.
+  // Mid-cut tip ~0.8 m toward opponent — connects after full lunge, misses at idle preferred spacing.
   const tipReach =
     slashProgress !== null ? 0.3 + 0.5 * Math.max(factor, 0.4) : 0.2;
   return {

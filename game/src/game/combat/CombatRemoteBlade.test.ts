@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { bladeHitsBody } from "./CombatCollision.ts";
-import { PREFERRED_SPACING, STRIKE_GAP_M } from "./CombatConstants.ts";
+import { LUNGE_M, PREFERRED_SPACING } from "./CombatConstants.ts";
 import { lungeTargetX, regroupTargets } from "./CombatFootwork.ts";
 import { estimateRemoteBladePose, pickAttackerBladePose } from "./CombatRemoteBlade.ts";
 
 const near = (actual: number, expected: number, eps = 1e-6) =>
   assert.ok(Math.abs(actual - expected) < eps, `${actual} != ${expected}`);
+
+/** Root gap after a full preferred-spacing lunge (capped by LUNGE_M). */
+const LUNGED_GAP_M = PREFERRED_SPACING - LUNGE_M;
 
 test("remote seat tip without lunge misses at preferred spacing", () => {
   const left = -PREFERRED_SPACING / 2;
@@ -26,7 +29,7 @@ test("remote lunged tip toward opponent connects at preferred spacing", () => {
   const left = -PREFERRED_SPACING / 2;
   const right = PREFERRED_SPACING / 2;
   const lunged = lungeTargetX(right, left, 1);
-  near(Math.abs(lunged - left), STRIKE_GAP_M);
+  near(Math.abs(lunged - left), LUNGED_GAP_M);
   const blade = estimateRemoteBladePose({
     rootX: lunged,
     opponentX: left,
@@ -49,7 +52,7 @@ test("remote follow-up after regroup still connects with lunged tip", () => {
   near(Math.abs(reseat.dummyX - reseat.playerX), PREFERRED_SPACING);
 
   const lunged = lungeTargetX(reseat.dummyX, reseat.playerX, 1);
-  near(Math.abs(lunged - reseat.playerX), STRIKE_GAP_M);
+  near(Math.abs(lunged - reseat.playerX), LUNGED_GAP_M);
   const blade = estimateRemoteBladePose({
     rootX: lunged,
     opponentX: reseat.playerX,

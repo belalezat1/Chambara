@@ -23,8 +23,9 @@ test("lunge closes toward strike gap, capped by LUNGE_M", () => {
   const origin = -PREFERRED_SPACING / 2;
   const opponent = PREFERRED_SPACING / 2;
   const step = lungeDistanceToStrikeGap(origin, opponent);
-  near(step, PREFERRED_SPACING - STRIKE_GAP_M);
-  assert.ok(step <= LUNGE_M);
+  // Needed close (2.6 → 1.25) exceeds budget, so step equals LUNGE_M.
+  near(step, LUNGE_M);
+  assert.ok(PREFERRED_SPACING - STRIKE_GAP_M > LUNGE_M);
   assert.equal(lungeTargetX(origin, opponent, 0), origin);
   near(lungeTargetX(origin, opponent, 1), origin + step);
   near(lungeTargetX(origin, opponent, 0.5), origin + step * 0.5);
@@ -70,13 +71,13 @@ test("regroup preserves defender X and reseats attacker only", () => {
   near(flipped.dummyX, -1.4 + PREFERRED_SPACING);
 });
 
-test("lunge at preferred spacing equals LUNGE_M budget (2.2 → 1.25 gap)", () => {
-  near(PREFERRED_SPACING, 2.2);
+test("lunge at preferred spacing equals LUNGE_M budget (2.6 → 1.65 gap)", () => {
+  near(PREFERRED_SPACING, 2.6);
   const origin = -PREFERRED_SPACING / 2;
   const opponent = PREFERRED_SPACING / 2;
   const step = lungeDistanceToStrikeGap(origin, opponent);
   near(step, LUNGE_M);
-  near(Math.abs(opponent - lungeTargetX(origin, opponent, 1)), STRIKE_GAP_M);
+  near(Math.abs(opponent - lungeTargetX(origin, opponent, 1)), PREFERRED_SPACING - LUNGE_M);
 });
 
 function near(actual: number, expected: number, eps = 1e-6) {

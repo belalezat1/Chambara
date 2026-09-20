@@ -367,6 +367,252 @@ h2 { margin-top: 6px; font-size: 21px; letter-spacing: -0.03em; }
   .section-block { margin-top: 14px; }
 }
 
+@font-face {
+  font-family: "Born2bSporty";
+  src: url("/ui/fonts/born2bsporty-fs.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.ui-screen-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: auto;
+}
+.ui-fullbleed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: #0a0d12 center / cover no-repeat;
+  cursor: pointer;
+}
+.ui-fullbleed-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.ui-title { cursor: pointer; }
+.ui-menu {
+  cursor: default;
+  pointer-events: auto;
+}
+.ui-menu-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 3vh, 28px);
+  width: min(420px, 78vw);
+}
+.ui-menu-hit {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.ui-menu-hit img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.ui-make-join { cursor: default; }
+.ui-make-join-actions {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ui-hit-zone {
+  position: absolute;
+  pointer-events: auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.ui-hit-primary { left: 18%; right: 18%; top: 38%; height: 14%; }
+.ui-hit-secondary { left: 18%; right: 18%; top: 54%; height: 12%; }
+.ui-hit-back { left: 6%; width: 16%; bottom: 8%; height: 10%; }
+.ui-join-form {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(320px, 80vw);
+}
+.ui-join-form input {
+  padding: 12px 14px;
+  border: 1px solid rgb(248 243 233 / 35%);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 45%);
+  color: #f8f3e9;
+  font-family: "Born2bSporty", "DM Mono", monospace;
+  font-size: 28px;
+  letter-spacing: 0.2em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.ui-text-button {
+  cursor: pointer;
+  padding: 12px 16px;
+  border: 1px solid rgb(248 243 233 / 40%);
+  border-radius: 8px;
+  background: rgb(10 13 18 / 70%);
+  color: #f8f3e9;
+  font-family: "Born2bSporty", "Space Grotesk", sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+}
+.ui-text-button-ghost { opacity: 0.75; font-size: 16px; }
+.ui-waiting {
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background-color: #1a1a1a;
+  background-size: cover;
+  background-position: center;
+}
+.ui-waiting-code {
+  margin: 0;
+  font-family: "Born2bSporty", "DM Mono", monospace;
+  font-size: clamp(40px, 10vw, 72px);
+  letter-spacing: 0.22em;
+}
+.ui-waiting-copy {
+  margin: 0;
+  font-family: "Born2bSporty", sans-serif;
+  font-size: clamp(22px, 4vw, 36px);
+  letter-spacing: 0.06em;
+}
+.ui-waiting-note {
+  margin: 0 0 12px;
+  color: rgb(248 243 233 / 55%);
+  font-size: 12px;
+}
+.ui-ready { cursor: default; }
+.ui-ready-vs {
+  position: absolute;
+  width: min(70vw, 520px);
+  height: auto;
+  z-index: 1;
+}
+.ui-ready-banner {
+  position: absolute;
+  bottom: 12%;
+  width: min(50vw, 360px);
+  height: auto;
+  z-index: 2;
+}
+
+.countdown-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgb(0 0 0 / 35%), transparent 65%);
+}
+.countdown-digit {
+  font-family: "Born2bSporty", Impact, sans-serif;
+  font-size: clamp(72px, 18vw, 160px);
+  letter-spacing: 0.08em;
+  color: #f8f3e9;
+  text-shadow: 0 6px 0 #101820, 0 12px 40px rgb(0 0 0 / 55%);
+  animation: countdown-pop 280ms ease-out;
+}
+@keyframes countdown-pop {
+  from { transform: scale(1.35); opacity: 0.2; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.fight-hud {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 1px solid rgb(248 243 233 / 18%);
+  border-radius: 12px;
+  background: rgb(10 13 18 / 72%);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+.fight-hud-round {
+  font-family: "Born2bSporty", "DM Mono", monospace;
+  font-size: 18px;
+  letter-spacing: 0.16em;
+  color: #d8a75d;
+}
+.fight-hud-scores {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.fight-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 48px;
+}
+.fight-score span {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: rgb(248 243 233 / 60%);
+}
+.fight-score strong {
+  font-family: "Born2bSporty", sans-serif;
+  font-size: 28px;
+  line-height: 1;
+}
+.fight-score-divider {
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: rgb(248 243 233 / 45%);
+}
+.fight-phase-row {
+  margin-top: 2px;
+  min-width: 140px;
+}
+.fight-round-banner {
+  margin: 4px 0 0;
+  font-family: "Born2bSporty", sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.1em;
+  color: #f2c67e;
+}
+.hud-top-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+@media (max-width: 780px) {
+  .fight-hud { top: 10px; padding: 8px 12px; }
+  .countdown-digit { font-size: clamp(56px, 22vw, 96px); }
+}
+
 @media (max-width: 420px) {
   .controller-shell { padding: 0; place-items: stretch; }
   .controller-card { width: 100%; min-height: 100%; padding: 22px 18px; border: 0; border-radius: 0; }

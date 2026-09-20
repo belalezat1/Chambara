@@ -1,0 +1,56 @@
+{
+  "typecheck_exit": 0,
+  "test_exit": 0,
+  "test_summary": {
+    "pass": 114,
+    "fail": 0,
+    "skipped": 6,
+    "total": 120
+  },
+  "vite": "already running http://localhost:5173/ -> 200",
+  "playwright_native": {
+    "solo_hit_browser": {
+      "exit": 2,
+      "error": "Chromium SEGV under Cursor seatbelt; kill EPERM"
+    },
+    "solo_hit_until_ringout": {
+      "exit": 3,
+      "error": "Chromium SEGV under Cursor seatbelt; kill EPERM"
+    }
+  },
+  "mcp_browser_equivalent": {
+    "solo_hit": {
+      "ok": true,
+      "before": {
+        "hits": "0"
+      },
+      "after1": {
+        "hits": "1",
+        "outcome": "HIT"
+      },
+      "after2": {
+        "hits": "2",
+        "outcome": "HIT"
+      }
+    },
+    "ringout": {
+      "status": "RINGOUT_REACHED",
+      "swings": 8,
+      "hits": "8",
+      "outcome": "RINGOUT",
+      "winner": "YOU",
+      "phase": "ROUNDEND"
+    }
+  },
+  "files_fixed": [
+    "src/game/combat/MatchPhaseMachine.ts",
+    "src/game/combat/CombatFootwork.test.ts",
+    "src/game/combat/CombatCollision.test.ts",
+    "src/game/combat/CombatRemoteBlade.test.ts"
+  ],
+  "screenshots": [
+    "artifacts/solo_hit_02_before.png",
+    "artifacts/solo_hit_04_after_slash2.png",
+    "artifacts/solo_ringout_success.png"
+  ]
+}
