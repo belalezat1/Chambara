@@ -51,6 +51,7 @@ import {
 import { bladeHitsBody } from "./combat/CombatCollision";
 import {
   faceYawRadians,
+  hostSeatsToLocal,
   lungeFactorFromSlashProgress,
   lungeTargetX,
   regroupTargets,
@@ -62,6 +63,7 @@ import { isInHitWindow, resolveCombat, type FighterSnapshot } from "./combat/Com
 import { estimateRemoteBladePose, pickAttackerBladePose } from "./combat/CombatRemoteBlade";
 import { advanceSlashArming } from "./combat/CombatSlashArming";
 import type { CombatIntentPublish, CombatOutcomeEvent, RemoteCombatIntent } from "./net/SpacetimeMatchClient";
+import { combatDebug, shortIdentity } from "./net/CombatDebug";
 import { clampTwoBoneTarget } from "./input/ArmPoseMath";
 import {
   composeTorsoFollowRotation,
@@ -609,10 +611,23 @@ export class BabylonGame {
     localIdentityHex: string | null;
     remoteIdentityHex: string | null;
   }): void {
+    const sessionChanged =
+      this.matchCombatActive !== (options.active && Boolean(options.remoteIdentityHex)) ||
+      this.matchIsHost !== options.isHost ||
+      this.localIdentityHex !== options.localIdentityHex ||
+      this.remoteIdentityHex !== options.remoteIdentityHex;
     this.matchCombatActive = options.active && Boolean(options.remoteIdentityHex);
     this.matchIsHost = options.isHost;
     this.localIdentityHex = options.localIdentityHex;
     this.remoteIdentityHex = options.remoteIdentityHex;
+    if (sessionChanged) {
+      combatDebug("session.changed", {
+        active: this.matchCombatActive,
+        isHost: this.matchIsHost,
+        local: shortIdentity(this.localIdentityHex),
+        remote: shortIdentity(this.remoteIdentityHex),
+      });
+    }
     if (!options.active) {
       this.matchFrozen = false;
       this.combatWinnerHex = null;
@@ -644,6 +659,13 @@ export class BabylonGame {
       this.remoteSlashAngle = Math.atan2(intent.guardY, intent.guardX || 0.0001);
       this.blockingLatchForRemoteSlash = this.phoneBlocking;
       this.beginRemoteAttackLunge();
+      combatDebug("slash.remote", {
+        slashSeq: intent.slashSeq,
+        blocking: intent.blocking,
+        guardX: intent.guardX,
+        guardY: intent.guardY,
+        seats: this.getCombatSeats(),
+      });
     }
     this.remoteIntent = intent;
   }
@@ -912,21 +934,42 @@ export class BabylonGame {
     if (outcome.seq <= this.lastAppliedOutcomeSeq) return;
     this.lastAppliedOutcomeSeq = outcome.seq;
     this.lastCombatOutcome = outcome.kind;
-    this.playerOnSoftEdge = Math.abs(outcome.playerRootX) >= ARENA_RADIUS - 0.05;
-    this.dummyOnSoftEdge = Math.abs(outcome.dummyRootX) >= ARENA_RADIUS - 0.05;
 
     const now = performance.now();
-    if (this.player) {
-      this.playerCombatX = outcome.playerRootX;
-    }
-    if (this.dummy) {
-      this.dummyCombatX = outcome.dummyRootX;
-    }
+    // Received outcomes use the authoritative host's coordinate frame. Use
+    // its identity rather than transient roster/UI state to decide whether to
+    // mirror. Locally-resolved solo outcomes keep their direct frame.
+    const localIsHost = outcome.actorIdentityHex === "local" ||
+      (outcome.hostIdentityHex
+        ? outcome.hostIdentityHex === this.localIdentityHex
+        : this.matchIsHost);
+    const localSeats = hostSeatsToLocal(
+      { playerX: outcome.playerRootX, dummyX: outcome.dummyRootX },
+      localIsHost,
+    );
+    const nextPlayerX = localSeats.playerX;
+    const nextDummyX = localSeats.dummyX;
+    this.playerOnSoftEdge = Math.abs(nextPlayerX) >= ARENA_RADIUS - 0.05;
+    this.dummyOnSoftEdge = Math.abs(nextDummyX) >= ARENA_RADIUS - 0.05;
+    if (this.player) this.playerCombatX = nextPlayerX;
+    if (this.dummy) this.dummyCombatX = nextDummyX;
     this.applyCombatSeats();
 
     const localIsActor =
       outcome.actorIdentityHex === this.localIdentityHex ||
       outcome.actorIdentityHex === "local";
+
+    combatDebug("outcome.apply", {
+      seq: outcome.seq,
+      kind: outcome.kind,
+      localIsHost,
+      localIsActor,
+      wireSeats: { playerX: outcome.playerRootX, dummyX: outcome.dummyRootX },
+      localSeats: this.getCombatSeats(),
+      host: shortIdentity(outcome.hostIdentityHex ?? null),
+      actor: shortIdentity(outcome.actorIdentityHex),
+      target: shortIdentity(outcome.targetIdentityHex),
+    });
 
     if (outcome.kind === "hit") {
       if (localIsActor) {
@@ -1038,6 +1081,11 @@ export class BabylonGame {
     // Do not clear invuln early — short stun must block spam until the timer expires.
     this.lastBlockAnimation = "";
     this.player.controller.play("AttackSwing");
+    combatDebug("slash.local", {
+      slashSeq: this.localSlashSeq,
+      originX: this.lungeOriginX,
+      opponentX: this.dummyCombatX,
+    });
   }
 
   private beginRemoteAttackLunge(): void {
@@ -1152,16 +1200,30 @@ export class BabylonGame {
     };
   }
 
-  /** Latest local GripPrimary world pose for Spacetime publish. */
+  /** Latest local GripPrimary pose relative to the publishing fighter root. */
   getLocalSwordNetworkPose(): PrimaryGripNetworkPose | null {
     const snapshot = this.weaponTarget.snapshot();
-    if (snapshot.source !== "controller" || snapshot.sessionGeneration === null || snapshot.sequence === null) {
+    if (
+      !this.poseRig ||
+      snapshot.source !== "controller" ||
+      snapshot.sessionGeneration === null ||
+      snapshot.sequence === null
+    ) {
       return null;
     }
+    const root = this.poseRig.root;
+    const localPosition = this.rootPointFromWorld(
+      root,
+      Vector3.FromArray(snapshot.worldPosition),
+    );
+    const localRotation = this.worldRotationToRootLocal(
+      root,
+      tupleToQuaternion(snapshot.worldRotation),
+    );
     return {
       type: "primary-grip",
-      position: [...snapshot.worldPosition] as [number, number, number],
-      rotation: [...snapshot.worldRotation] as QuaternionTuple,
+      position: [localPosition.x, localPosition.y, localPosition.z],
+      rotation: quaternionToTuple(localRotation),
       sessionGeneration: snapshot.sessionGeneration,
       sequence: snapshot.sequence,
     };
@@ -2270,6 +2332,22 @@ export class BabylonGame {
     return Vector3.TransformCoordinates(pointWorld, Matrix.Invert(root.getWorldMatrix()));
   }
 
+  private worldRotationOf(root: TransformNode): Quaternion {
+    root.computeWorldMatrix(true);
+    const scaling = new Vector3();
+    const rotation = new Quaternion();
+    const translation = new Vector3();
+    root.getWorldMatrix().decompose(scaling, rotation, translation);
+    return rotation.normalize();
+  }
+
+  private worldRotationToRootLocal(
+    root: TransformNode,
+    worldRotation: Quaternion,
+  ): Quaternion {
+    return this.worldRotationOf(root).invert().multiply(worldRotation).normalize();
+  }
+
   private rootDirectionFromWorld(
     root: TransformNode,
     rotation: Quaternion,
@@ -2767,47 +2845,20 @@ export class BabylonGame {
       return;
     }
     const pose = this.latestRemoteNetworkPose;
-    const mapped = this.mapPublisherPlayerPoseToLocalDummy(
-      Vector3.FromArray(pose.position),
-      tupleToQuaternion(pose.rotation),
-    );
     const root = this.remotePoseRig.root;
-    const rootAnchor = this.rootPointFromWorld(root, mapped.position);
+    root.computeWorldMatrix(true);
+    const rootAnchor = Vector3.FromArray(pose.position);
+    const worldPosition = Vector3.TransformCoordinates(rootAnchor, root.getWorldMatrix());
+    const worldRotation = this.worldRotationOf(root)
+      .multiply(tupleToQuaternion(pose.rotation))
+      .normalize();
     this.remoteWeaponTarget.setController(
       rootAnchor,
-      mapped.position,
-      mapped.rotation,
+      worldPosition,
+      worldRotation,
       pose.sessionGeneration,
       pose.sequence,
     );
-  }
-
-  /**
-   * Publisher writes GripPrimary in their local-player world frame. Each client
-   * views itself on the left seat, so remap into the right-hand dummy seat.
-   */
-  private mapPublisherPlayerPoseToLocalDummy(
-    position: Vector3,
-    rotation: Quaternion,
-  ): { position: Vector3; rotation: Quaternion } {
-    const publisherRoot = Matrix.Compose(
-      Vector3.One(),
-      Quaternion.RotationAxis(Vector3.Up(), LOCAL_PLAYER_ROTATION_Y),
-      LOCAL_PLAYER_POSITION,
-    );
-    const localDummyRoot = Matrix.Compose(
-      Vector3.One(),
-      Quaternion.RotationAxis(Vector3.Up(), REMOTE_DUMMY_ROTATION_Y),
-      REMOTE_DUMMY_POSITION,
-    );
-    const gripLocal = Vector3.TransformCoordinates(position, Matrix.Invert(publisherRoot));
-    const mappedPosition = Vector3.TransformCoordinates(gripLocal, localDummyRoot);
-
-    const publisherRot = Quaternion.RotationAxis(Vector3.Up(), LOCAL_PLAYER_ROTATION_Y);
-    const dummyRot = Quaternion.RotationAxis(Vector3.Up(), REMOTE_DUMMY_ROTATION_Y);
-    const relative = publisherRot.invert().multiply(rotation).normalize();
-    const mappedRotation = dummyRot.multiply(relative).normalize();
-    return { position: mappedPosition, rotation: mappedRotation };
   }
 
   private updateRestWeaponTarget(): void {

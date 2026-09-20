@@ -2,7 +2,7 @@ import type { QuaternionTuple } from "../input/MotionTypes";
 
 export const PRIMARY_GRIP_MESSAGE_TYPE = "primary-grip" as const;
 
-/** Authoritative laptop-to-laptop pose for the primary hand's grip marker. */
+/** Primary grip pose in the publishing fighter root's local coordinate frame. */
 export type PrimaryGripNetworkPose = {
   type: typeof PRIMARY_GRIP_MESSAGE_TYPE;
   position: [number, number, number];

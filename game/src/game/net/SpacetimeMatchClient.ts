@@ -7,6 +7,7 @@ import {
   type PrimaryGripNetworkPose,
 } from "./PrimaryGripProtocol";
 import type { CombatOutcomeKind } from "../combat/CombatConstants";
+import { combatDebug, shortIdentity } from "./CombatDebug";
 export type { PrimaryGripNetworkPose } from "./PrimaryGripProtocol";
 
 export type MatchClientStatus = {
@@ -35,6 +36,8 @@ export type CombatOutcomeEvent = {
   playerRootX: number;
   dummyRootX: number;
   winnerIdentityHex: string | null;
+  /** Client-enriched identity defining the outcome's player/dummy frame. */
+  hostIdentityHex?: string | null;
 };
 
 export type RemoteCombatIntent = {
@@ -146,6 +149,7 @@ export class SpacetimeMatchClient {
     await this.ensureConnected();
     if (!this.conn) return;
     this.roomCode = roomCode;
+    combatDebug("match.join", { roomCode });
     this.lastOutcomeSeq = -1;
     this.setStatus({ roomCode, error: "", connection: "connected" });
     try {
@@ -165,6 +169,7 @@ export class SpacetimeMatchClient {
   }
 
   leave(): void {
+    if (this.roomCode) combatDebug("match.leave", { roomCode: this.roomCode });
     try {
       void this.conn?.reducers.leaveMatch({});
     } catch {
@@ -227,6 +232,15 @@ export class SpacetimeMatchClient {
       if (!winnerIdentity) return;
     }
     try {
+      combatDebug("outcome.publish", {
+        roomCode: this.roomCode,
+        seq: outcome.seq,
+        kind: outcome.kind,
+        actor: shortIdentity(outcome.actorIdentityHex),
+        target: shortIdentity(outcome.targetIdentityHex),
+        playerRootX: outcome.playerRootX,
+        dummyRootX: outcome.dummyRootX,
+      });
       this.conn.reducers.publishCombatOutcome({
         seq: outcome.seq,
         kind: outcome.kind,
@@ -269,6 +283,10 @@ export class SpacetimeMatchClient {
             identityHex: identity.toHexString(),
             error: "",
           });
+          combatDebug("socket.connected", {
+            identity: shortIdentity(identity.toHexString()),
+            database: this.database,
+          });
           conn.db.swordPose.onInsert((_ctx, row) => this.handlePoseRow(row));
           conn.db.swordPose.onUpdate((_ctx, _old, row) => this.handlePoseRow(row));
           conn.db.swordPose.onDelete((_ctx, row) => {
@@ -300,12 +318,14 @@ export class SpacetimeMatchClient {
         .onConnectError((_ctx, error) => {
           const message = error instanceof Error ? error.message : String(error);
           this.setStatus({ connection: "error", error: message });
+          combatDebug("socket.error", { message });
           if (!settled) {
             settled = true;
             reject(error instanceof Error ? error : new Error(message));
           }
         })
         .onDisconnect(() => {
+          combatDebug("socket.disconnected", { roomCode: this.roomCode });
           this.conn = null;
           this.setStatus({
             connection: "idle",
@@ -357,13 +377,14 @@ export class SpacetimeMatchClient {
     this.identityByHex.set(row.identity.toHexString(), row.identity);
     if (!this.identity || row.identity.equals(this.identity)) return;
     if (this.roomCode && row.roomCode !== this.roomCode) return;
-    this.listeners.onCombatIntent?.({
+    const intent = {
       identityHex: row.identity.toHexString(),
       blocking: row.blocking,
       slashSeq: row.slashSeq,
       guardX: row.guardX,
       guardY: row.guardY,
-    });
+    };
+    this.listeners.onCombatIntent?.(intent);
   }
 
   private handleOutcomeRow(row: {
@@ -382,7 +403,7 @@ export class SpacetimeMatchClient {
     this.lastOutcomeSeq = row.seq;
     this.identityByHex.set(row.actorIdentity.toHexString(), row.actorIdentity);
     this.identityByHex.set(row.targetIdentity.toHexString(), row.targetIdentity);
-    this.listeners.onCombatOutcome?.({
+    const outcome: CombatOutcomeEvent = {
       roomCode: row.roomCode,
       seq: row.seq,
       kind: row.kind as CombatOutcomeKind,
@@ -391,7 +412,20 @@ export class SpacetimeMatchClient {
       playerRootX: row.playerRootX,
       dummyRootX: row.dummyRootX,
       winnerIdentityHex: optionalIdentityHex(row.winnerIdentity),
+      hostIdentityHex:
+        this.conn?.db.match.roomCode.find(row.roomCode)?.hostIdentity.toHexString() ?? null,
+    };
+    combatDebug("outcome.receive", {
+      roomCode: outcome.roomCode,
+      seq: outcome.seq,
+      kind: outcome.kind,
+      actor: shortIdentity(outcome.actorIdentityHex),
+      target: shortIdentity(outcome.targetIdentityHex),
+      playerRootX: outcome.playerRootX,
+      dummyRootX: outcome.dummyRootX,
+      host: shortIdentity(outcome.hostIdentityHex ?? null),
     });
+    this.listeners.onCombatOutcome?.(outcome);
   }
 
   private refreshRoster(): void {
@@ -409,6 +443,17 @@ export class SpacetimeMatchClient {
       this.identityByHex.set(matchRow.hostIdentity.toHexString(), matchRow.hostIdentity);
     }
     const opponentConnected = players.some((player) => !player.identity.equals(this.identity!));
+    if (
+      players.length !== this.status.playerCount ||
+      opponentConnected !== this.status.opponentConnected
+    ) {
+      combatDebug("roster.changed", {
+        roomCode: this.roomCode,
+        playerCount: players.length,
+        opponentConnected,
+        isHost: Boolean(matchRow && matchRow.hostIdentity.equals(this.identity)),
+      });
+    }
     this.setStatus({
       playerCount: players.length,
       opponentConnected,

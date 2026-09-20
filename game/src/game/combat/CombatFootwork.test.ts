@@ -3,12 +3,22 @@ import test from "node:test";
 
 import { HIT_WINDOW_START, LUNGE_M, PREFERRED_SPACING, STRIKE_GAP_M } from "./CombatConstants.ts";
 import {
+  hostSeatsToLocal,
   lungeDistanceToStrikeGap,
   lungeFactorFromSlashProgress,
   lungeTargetX,
   regroupTargets,
   stepLungeRecover,
 } from "./CombatFootwork.ts";
+
+test("host combat seats are swapped and mirrored for the guest", () => {
+  const hostSeats = { playerX: -0.7, dummyX: 1.6 };
+  assert.deepEqual(hostSeatsToLocal(hostSeats, true), hostSeats);
+  assert.deepEqual(hostSeatsToLocal(hostSeats, false), {
+    playerX: -1.6,
+    dummyX: 0.7,
+  });
+});
 
 test("lunge factor ramps into the hit window then holds peak", () => {
   assert.equal(lungeFactorFromSlashProgress(null), 0);

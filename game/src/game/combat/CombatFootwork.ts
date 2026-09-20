@@ -10,6 +10,19 @@ import {
 export type RootPair = { playerX: number; dummyX: number };
 
 /**
+ * Combat outcomes are resolved in the host's left-player/right-dummy frame.
+ * Every peer renders itself on the left, so a guest swaps the seats and
+ * mirrors the duel axis before applying the outcome locally.
+ */
+export function hostSeatsToLocal(hostSeats: RootPair, localIsHost: boolean): RootPair {
+  if (localIsHost) return { ...hostSeats };
+  return {
+    playerX: -hostSeats.dummyX,
+    dummyX: -hostSeats.playerX,
+  };
+}
+
+/**
  * Soft regroup that preserves ring-out progress: keep the defender at their
  * post-knockback X and only reseat the attacker to preferred spacing.
  */
