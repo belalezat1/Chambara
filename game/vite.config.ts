@@ -5,6 +5,7 @@ import { WebSocket, WebSocketServer } from "ws";
 type RelayRoom = {
   peers: Map<"host" | "phone", WebSocket>;
   phoneSessionGeneration: number;
+  phoneReady: boolean;
   /** Latest phone sample waiting for a drained host socket (coalesce under backpressure). */
   pendingHostSample: object | null;
 };
@@ -53,6 +54,7 @@ export default defineConfig({
             sessionGeneration: room.peers.has("phone")
               ? room.phoneSessionGeneration
               : null,
+            phoneReady: room.peers.has("phone") && room.phoneReady,
           };
           for (const socket of room.peers.values()) trySend(socket, message);
         };
@@ -74,6 +76,7 @@ export default defineConfig({
               relayRoom = {
                 peers: new Map(),
                 phoneSessionGeneration: 0,
+                phoneReady: false,
                 pendingHostSample: null,
               };
               rooms.set(room, relayRoom);
@@ -81,6 +84,7 @@ export default defineConfig({
 
             if (role === "phone") {
               relayRoom.phoneSessionGeneration += 1;
+              relayRoom.phoneReady = false;
               relayRoom.pendingHostSample = null;
             }
             const sessionGeneration = relayRoom.phoneSessionGeneration;
@@ -95,6 +99,9 @@ export default defineConfig({
                 const message = JSON.parse(data.toString()) as Record<string, unknown>;
                 if (role === "phone" && message.type === "sample") {
                   sendSampleToHost(relayRoom, { ...message, sessionGeneration });
+                } else if (role === "phone" && message.type === "ready") {
+                  relayRoom.phoneReady = message.ready === true;
+                  notifyPeers(relayRoom);
                 } else if (role === "host" && message.type === "reset") {
                   const phone = relayRoom?.peers.get("phone");
                   if (phone) trySend(phone, message);
@@ -120,6 +127,7 @@ export default defineConfig({
             client.on("close", () => {
               if (relayRoom?.peers.get(role) !== client) return;
               relayRoom.peers.delete(role);
+              if (role === "phone") relayRoom.phoneReady = false;
               if (role === "host") relayRoom.pendingHostSample = null;
               notifyPeers(relayRoom);
               if (relayRoom.peers.size === 0) {

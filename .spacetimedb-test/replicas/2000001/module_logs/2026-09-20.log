@@ -1,0 +1,12 @@
+{"level":"Info","ts":1789883219880953,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `committed_tick`"}
+{"level":"Info","ts":1789883219882024,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `input_frame`"}
+{"level":"Info","ts":1789883219882318,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `input_sequence`"}
+{"level":"Info","ts":1789883219882484,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `match`"}
+{"level":"Info","ts":1789883219883446,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `match_hash`"}
+{"level":"Info","ts":1789883219883973,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `match_player`"}
+{"level":"Info","ts":1789883219884825,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `match_result`"}
+{"level":"Info","ts":1789883219885322,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `match_tick`"}
+{"level":"Info","ts":1789883219885711,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `network_probe`"}
+{"level":"Info","ts":1789883219885993,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Creating table `sword_pose`"}
+{"level":"Info","ts":1789883219892030,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Invoking `init` reducer"}
+{"level":"Info","ts":1789883219903869,"target":"__spacetimedb__","filename":"__spacetimedb__","function":"__spacetimedb__","message":"Database initialized"}

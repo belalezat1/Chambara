@@ -71,6 +71,7 @@ export class MotionRelayClient {
     if (socket) socket.close(1000, "Client stopped");
     this.status.connection = "idle";
     this.status.peerConnected = false;
+    this.status.peerReady = false;
     this.status.streamState = "idle";
     this.status.sessionGeneration = null;
     this.status.rawQuaternion = null;
@@ -89,6 +90,11 @@ export class MotionRelayClient {
     }
     this.socket.send(JSON.stringify(message));
     return true;
+  }
+
+  setReady(ready: boolean): void {
+    if (this.role !== "phone") return;
+    this.send({ type: "ready", ready: Boolean(ready) });
   }
 
   private connect(): void {
@@ -135,6 +141,7 @@ export class MotionRelayClient {
       if (this.socket !== socket) return;
       this.socket = null;
       this.status.peerConnected = false;
+      this.status.peerReady = false;
       this.status.connection = "disconnected";
       this.status.streamState = "idle";
       if (event.code === 4000) {
@@ -199,6 +206,7 @@ export class MotionRelayClient {
         this.rateWindowStarted = performance.now();
       }
       this.status.peerConnected = peer;
+      this.status.peerReady = this.role === "host" && peer && message.phoneReady === true;
       this.status.sessionGeneration = advertisedGeneration;
       this.status.connection = peer ? "connected" : "waiting";
       this.emitStatus();
@@ -261,6 +269,7 @@ export class MotionRelayClient {
   private handleConnectionError(error: unknown): void {
     this.status.connection = "error";
     this.status.error = error instanceof Error ? error.message : String(error);
+    this.status.peerReady = false;
     this.emitStatus();
   }
 

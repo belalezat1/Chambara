@@ -27,6 +27,7 @@ export interface PhoneControllerStatus {
   orientationSeen: boolean;
   motionSeen: boolean;
   calibrated: boolean;
+  ready: boolean;
   sentPerSecond: number;
   blocking: boolean;
   lastQuaternion: QuaternionTuple | null;
@@ -52,6 +53,7 @@ export function createInitialPhoneControllerStatus(room: string): PhoneControlle
     orientationSeen: false,
     motionSeen: false,
     calibrated: false,
+    ready: false,
     sentPerSecond: 0,
     blocking: false,
     lastQuaternion: null,
@@ -188,6 +190,21 @@ export class PhoneMotionController {
     this.emitStatus();
   }
 
+  setReady(ready: boolean): boolean {
+    if (ready && (!this.status.peerConnected || !this.status.calibrated)) {
+      return false;
+    }
+    const next = Boolean(ready);
+    if (this.status.ready === next) return next;
+    this.status.ready = next;
+    this.relay.setReady(next);
+    this.status.sensorMessage = next
+      ? "Ready. Keep this controller tab visible for the match."
+      : "Not ready. Recenter if you need to recalibrate before readying up.";
+    this.emitStatus();
+    return next;
+  }
+
   recenter(): boolean {
     if (!this.rawQuaternion) {
       this.status.sensorMessage =
@@ -198,6 +215,7 @@ export class PhoneMotionController {
     this.swingDetector.reset();
     this.calibrationReference = this.rawQuaternion.clone();
     this.lastSentCalibrationKey = null;
+    this.setReady(false);
     this.status.calibrated = true;
     this.status.calibrationReferenceQuaternion = quaternionToTuple(
       this.calibrationReference,
@@ -212,6 +230,7 @@ export class PhoneMotionController {
   stop(): void {
     this.active = false;
     this.blocking = false;
+    this.status.ready = false;
     this.status.blocking = false;
     this.lastSentCalibrationKey = null;
     this.swingDetector.reset();
@@ -349,6 +368,9 @@ export class PhoneMotionController {
     this.status.connection = relayStatus.connection;
     this.status.peerConnected = relayStatus.peerConnected;
     this.status.relayRttMs = relayStatus.relayRttMs;
+    if (!relayStatus.peerConnected && this.status.ready) {
+      this.status.ready = false;
+    }
     this.emitStatus();
   }
 

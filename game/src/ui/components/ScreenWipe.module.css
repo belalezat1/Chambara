@@ -1,0 +1,42 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  pointer-events: auto;
+  isolation: isolate;
+}
+
+.panel {
+  position: absolute;
+  top: -10%;
+  left: -17.5%;
+  width: 135%;
+  height: 120%;
+  clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
+  animation: panelSweep var(--panel-duration) linear 1 forwards;
+  will-change: transform;
+}
+
+.leadingGold { z-index: 1; background: #d9a21b; }
+.black {
+  left: calc(-17.5% + var(--black-panel-offset));
+  animation-delay: var(--black-start);
+  visibility: hidden;
+  transform: translate3d(-110%, 0, 0);
+  z-index: 2;
+  background: #050505;
+}
+.trailingGold {
+  left: calc(-17.5% + var(--trailing-gold-offset));
+  animation-delay: var(--trailing-gold-start);
+  visibility: hidden;
+  transform: translate3d(-110%, 0, 0);
+  z-index: 3;
+  background: #d9a21b;
+}
+
+@keyframes panelSweep {
+  from { transform: translate3d(-110%, 0, 0); visibility: visible; }
+  to { transform: translate3d(110%, 0, 0); visibility: visible; }
+}

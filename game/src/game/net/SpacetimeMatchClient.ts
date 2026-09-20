@@ -17,6 +17,8 @@ export type MatchClientStatus = {
   isHost: boolean;
   playerCount: number;
   opponentConnected: boolean;
+  hostReady: boolean;
+  guestReady: boolean;
   error: string;
 };
 
@@ -76,6 +78,8 @@ export function createInitialMatchStatus(): MatchClientStatus {
     isHost: false,
     playerCount: 0,
     opponentConnected: false,
+    hostReady: false,
+    guestReady: false,
     error: "",
   };
 }
@@ -100,6 +104,7 @@ export class SpacetimeMatchClient {
   private conn: DbConnection | null = null;
   private identity: Identity | null = null;
   private roomCode = "";
+  private seat: "host" | "guest" | null = null;
   private status = createInitialMatchStatus();
   private readonly listeners: MatchClientListeners;
   private readonly uri: string;
@@ -140,7 +145,7 @@ export class SpacetimeMatchClient {
     return null;
   }
 
-  async join(rawRoom: string): Promise<void> {
+  async join(rawRoom: string, requestedSeat: "host" | "guest" = "guest"): Promise<void> {
     const roomCode = normalizeRoomCode(rawRoom);
     if (!roomCode) {
       this.setStatus({ error: "Enter a valid 6-character match code.", connection: "error" });
@@ -149,21 +154,18 @@ export class SpacetimeMatchClient {
     await this.ensureConnected();
     if (!this.conn) return;
     this.roomCode = roomCode;
+    this.seat = requestedSeat;
     combatDebug("match.join", { roomCode });
     this.lastOutcomeSeq = -1;
     this.setStatus({ roomCode, error: "", connection: "connected" });
     try {
-      this.conn.reducers.createOrJoinMatch({ roomCode }).catch((error: unknown) => {
-        this.setStatus({
-          error: error instanceof Error ? error.message : String(error),
-          connection: "error",
-        });
-      });
+      await this.conn.reducers.createOrJoinMatch({ roomCode });
     } catch (error) {
       this.setStatus({
         error: error instanceof Error ? error.message : String(error),
         connection: "error",
       });
+      throw error;
     }
     this.refreshRoster();
   }
@@ -176,6 +178,7 @@ export class SpacetimeMatchClient {
       // ignore
     }
     this.roomCode = "";
+    this.seat = null;
     this.lastOutcomeSeq = -1;
     this.listeners.onRemotePose(null);
     this.setStatus({
@@ -183,8 +186,27 @@ export class SpacetimeMatchClient {
       isHost: false,
       playerCount: 0,
       opponentConnected: false,
+      hostReady: false,
+      guestReady: false,
       error: "",
     });
+  }
+
+  setReady(ready: boolean): void {
+    if (!this.conn || !this.roomCode) return;
+    try {
+      this.conn.reducers.setReady({ ready: Boolean(ready) }).catch((error: unknown) => {
+        this.setStatus({
+          error: error instanceof Error ? error.message : String(error),
+          connection: "error",
+        });
+      });
+    } catch (error) {
+      this.setStatus({
+        error: error instanceof Error ? error.message : String(error),
+        connection: "error",
+      });
+    }
   }
 
   publishPose(pose: PrimaryGripNetworkPose, now = performance.now()): void {
@@ -296,6 +318,7 @@ export class SpacetimeMatchClient {
             this.refreshRoster();
           });
           conn.db.matchPlayer.onInsert(() => this.refreshRoster());
+          conn.db.matchPlayer.onUpdate(() => this.refreshRoster());
           conn.db.matchPlayer.onDelete(() => this.refreshRoster());
           conn.db.match.onInsert(() => this.refreshRoster());
           conn.db.match.onUpdate(() => this.refreshRoster());
@@ -327,11 +350,14 @@ export class SpacetimeMatchClient {
         .onDisconnect(() => {
           combatDebug("socket.disconnected", { roomCode: this.roomCode });
           this.conn = null;
+          this.seat = null;
           this.setStatus({
             connection: "idle",
             opponentConnected: false,
             playerCount: 0,
             isHost: false,
+            hostReady: false,
+            guestReady: false,
           });
           this.listeners.onRemotePose(null);
         });
@@ -443,6 +469,13 @@ export class SpacetimeMatchClient {
       this.identityByHex.set(matchRow.hostIdentity.toHexString(), matchRow.hostIdentity);
     }
     const opponentConnected = players.some((player) => !player.identity.equals(this.identity!));
+    const hostIdentity = matchRow?.hostIdentity;
+    const hostPlayer = hostIdentity
+      ? players.find((player) => player.identity.equals(hostIdentity))
+      : undefined;
+    const guestPlayer = hostIdentity
+      ? players.find((player) => !player.identity.equals(hostIdentity))
+      : undefined;
     if (
       players.length !== this.status.playerCount ||
       opponentConnected !== this.status.opponentConnected
@@ -455,9 +488,13 @@ export class SpacetimeMatchClient {
       });
     }
     this.setStatus({
-      playerCount: players.length,
+      playerCount: players.length || (this.seat === "host" ? 1 : 0),
       opponentConnected,
-      isHost: Boolean(matchRow && matchRow.hostIdentity.equals(this.identity)),
+      isHost: matchRow
+        ? matchRow.hostIdentity.equals(this.identity)
+        : this.seat === "host",
+      hostReady: hostPlayer?.ready === true,
+      guestReady: guestPlayer?.ready === true,
     });
   }
 

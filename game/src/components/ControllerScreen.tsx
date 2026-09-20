@@ -85,6 +85,7 @@ export default function ControllerScreen(): ReactElement {
   const connected = status.peerConnected;
   const motionEnabled = status.sensorState === "active" || status.orientationSeen;
   const blocking = status.blocking;
+  const readyEligible = Boolean(joinedRoom && connected && motionEnabled && status.calibrated);
 
   return (
     <main className="controller-shell">
@@ -164,6 +165,19 @@ export default function ControllerScreen(): ReactElement {
             disabled={!status.orientationSeen}
           >
             Recenter
+          </button>
+          <button
+            className={"controller-ready-button" + (status.ready ? " is-ready" : "")}
+            type="button"
+            aria-pressed={status.ready}
+            disabled={!status.ready && !readyEligible}
+            onClick={() => controllerRef.current?.setReady(!status.ready)}
+          >
+            {status.ready
+              ? "READY — TAP TO CANCEL"
+              : readyEligible
+                ? "READY FOR MATCH"
+                : "PAIR + RECENTER TO READY"}
           </button>
         </div>
 

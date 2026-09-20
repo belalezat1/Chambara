@@ -1,0 +1,477 @@
+@font-face {
+  font-family: 'Born2BSporty';
+  src: url('/ui/fonts/born2bsporty-fs.otf') format('opentype');
+  font-display: block;
+}
+
+.homeMenu {
+  --disc-diameter: 150%;
+  --disc-spin-duration: 100s;
+  --marquee-duration: 80s;
+  --hover-scale: 1.2;
+  --menu-backing-x: 10%;
+  --menu-backing-y: 14%;
+  --marquee-word-gap: 0.3em;
+  --menu-option-font-size: clamp(2.5rem, 7.3125cqw, 8.90625rem);
+  --menu-option-image-height: clamp(2.5rem, 6.5cqw, 8.5rem);
+  --marquee-font-size: clamp(3.75rem, 20.65cqw, 24.375rem);
+  --marquee-width: 18%;
+  --entry-duration: 520ms;
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-type: inline-size;
+  background: #090909;
+}
+
+.sceneLayer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.flashAccent {
+  position: absolute;
+  z-index: 41;
+  inset: 0;
+  background: #ffe28a;
+  pointer-events: none;
+}
+
+.discShell {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: var(--disc-diameter);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.discTexture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: homeDiscSpin var(--disc-spin-duration) linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.foregroundArtwork {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.menu {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  pointer-events: none;
+}
+
+.floatPlane,
+.punchPlane {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.floatPlane {
+  transform-origin: center;
+  will-change: transform;
+}
+
+.punchPlane {
+  transform-origin: right center;
+}
+
+.menuOption {
+  --menu-tilt: 0deg;
+  --entry-delay: 0ms;
+
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--menu-width, 20%);
+  padding: 0.8cqw 1.5cqw;
+  border: 0;
+  color: #fff;
+  background: transparent;
+  font-family: 'Born2BSporty', sans-serif;
+  font-size: var(--menu-option-font-size);
+  line-height: 0.88;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: rotate(var(--menu-tilt)) scale(1);
+  transform-origin: right center;
+  transition: transform 140ms ease-out;
+}
+
+.menuOption::before {
+  position: absolute;
+  z-index: 1;
+  inset: calc(0% - var(--menu-backing-y)) calc(0% - var(--menu-backing-x));
+  content: '';
+  background: #050505;
+  clip-path: polygon(1% 18%, 95% 0, 100% 73%, 91% 100%, 4% 91%, 0 31%);
+  transition: background-color 100ms ease-out;
+}
+
+.menuOption:hover,
+.menuOption:focus-visible {
+  transform: rotate(var(--menu-tilt)) scale(var(--hover-scale));
+}
+
+.menuOption:hover::before,
+.menuOption:focus-visible::before {
+  background: #fff;
+}
+
+.menuOption:focus-visible {
+  outline: 0.25cqw solid #fff;
+  outline-offset: 0.3cqw;
+}
+
+.menuOption.entering {
+  animation: menuOptionPopIn var(--entry-duration) cubic-bezier(0.2, 0.85, 0.25, 1) var(--entry-delay) both;
+  transition: none;
+}
+
+.menuOption.interactionLocked:hover,
+.menuOption.interactionLocked:focus-visible {
+  transform: rotate(var(--menu-tilt)) scale(1);
+}
+
+.menuOption.interactionLocked:hover::before,
+.menuOption.interactionLocked:focus-visible::before {
+  background: #050505;
+}
+
+.menuOption.interactionLocked .selector {
+  opacity: 0;
+}
+
+.labelStack {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  max-width: 88%;
+}
+
+.labelImage {
+  grid-area: 1 / 1;
+  display: block;
+  width: auto;
+  height: var(--menu-option-image-height);
+  max-width: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 100ms ease-out;
+}
+
+.labelWhite {
+  opacity: 1;
+}
+
+.labelBlack {
+  opacity: 0;
+}
+
+.menuOption:hover .labelWhite,
+.menuOption:focus-visible .labelWhite {
+  opacity: 0;
+}
+
+.menuOption:hover .labelBlack,
+.menuOption:focus-visible .labelBlack {
+  opacity: 1;
+}
+
+.menuOption.interactionLocked:hover .labelWhite,
+.menuOption.interactionLocked:focus-visible .labelWhite {
+  opacity: 1;
+}
+
+.menuOption.interactionLocked:hover .labelBlack,
+.menuOption.interactionLocked:focus-visible .labelBlack {
+  opacity: 0;
+}
+
+.selector {
+  position: absolute;
+  z-index: 0;
+  top: -50%;
+  left: -25%;
+  width: 150%;
+  height: 200%;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+
+.menuOption:hover .selector,
+.menuOption:focus-visible .selector {
+  opacity: 1;
+}
+
+.selectorPrimary {
+  fill: #f1262f;
+  opacity: 0.96;
+}
+
+.selectorBlend {
+  fill: #34dff5;
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+
+.floatPlane.floatVersus.floatActive {
+  animation: menuFloatVersus 3.4s ease-in-out -0.45s infinite;
+}
+
+.floatPlane.floatPractice.floatActive {
+  animation: menuFloatPractice 3.9s ease-in-out -1.25s infinite;
+}
+
+.floatPlane.floatSettings.floatActive {
+  animation: menuFloatSettings 3.2s ease-in-out -1.85s infinite;
+}
+
+.versus {
+  --menu-tilt: 17deg;
+  --menu-width: 30%;
+  top: 20%;
+  left: 30%;
+}
+
+.practice {
+  --menu-tilt: 7deg;
+  --menu-width: 37%;
+  top: 43%;
+  left: 16%;
+}
+
+.settings {
+  --menu-tilt: -15deg;
+  --menu-width: 39%;
+  top: 65%;
+  left: 18%;
+}
+
+.marquee {
+  position: absolute;
+  z-index: 30;
+  top: 0;
+  right: 0;
+  width: var(--marquee-width);
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.marqueeRotator {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.marqueeTrack {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: flex;
+  flex-direction: row;
+  flex: 0 0 auto;
+  width: max-content;
+  margin-top: -0.41em;
+  font-family: 'Born2BSporty', sans-serif;
+  font-size: var(--marquee-font-size);
+  line-height: 0.82;
+  animation: homeMarquee var(--marquee-duration) linear infinite;
+  will-change: transform;
+  white-space: nowrap;
+}
+
+.marqueeGroup {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: var(--marquee-word-gap);
+  padding-right: var(--marquee-word-gap);
+}
+
+.marqueePhrase {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--marquee-word-gap);
+  white-space: nowrap;
+}
+
+.marqueeMain {
+  color: #404040;
+}
+
+.marqueeMenu {
+  color: #797979;
+}
+
+@keyframes homeDiscSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes homeMarquee {
+  from {
+    transform: translateX(-66.6666667%);
+  }
+
+  to {
+    transform: translateX(-33.3333333%);
+  }
+}
+
+@keyframes menuOptionPopIn {
+  0% {
+    transform:
+      translateY(-12px)
+      rotate(calc(var(--menu-tilt) + 1deg))
+      scale(0);
+  }
+
+  12% {
+    transform:
+      translateY(-12px)
+      rotate(calc(var(--menu-tilt) + 1deg))
+      scale(0);
+  }
+
+  25% {
+    transform:
+      translateY(-8px)
+      rotate(calc(var(--menu-tilt) + 1deg))
+      scale(0.18);
+  }
+
+  52% {
+    transform:
+      translateY(5px)
+      rotate(calc(var(--menu-tilt) + 5deg))
+      scale(1.16);
+  }
+
+  72% {
+    transform:
+      translateY(-2px)
+      rotate(calc(var(--menu-tilt) + 2deg))
+      scale(0.96);
+  }
+
+  88% {
+    transform:
+      translateY(1px)
+      rotate(calc(var(--menu-tilt) + 0.5deg))
+      scale(1.025);
+  }
+
+  100% {
+    transform:
+      translateY(0)
+      rotate(var(--menu-tilt))
+      scale(1);
+  }
+}
+
+@keyframes menuFloatVersus {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  25% {
+    transform: translate(-3px, -6px) scale(1.004);
+  }
+
+  52% {
+    transform: translate(4px, 2px) scale(0.995);
+  }
+
+  77% {
+    transform: translate(-2px, 5px) scale(1.008);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes menuFloatPractice {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  24% {
+    transform: translate(4px, -4px) scale(1.002);
+  }
+
+  51% {
+    transform: translate(-2px, -7px) scale(0.995);
+  }
+
+  76% {
+    transform: translate(-4px, 3px) scale(1.006);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes menuFloatSettings {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  27% {
+    transform: translate(-4px, 4px) scale(1.004);
+  }
+
+  55% {
+    transform: translate(2px, -6px) scale(0.995);
+  }
+
+  80% {
+    transform: translate(4px, 3px) scale(1.008);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
