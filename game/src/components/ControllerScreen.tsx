@@ -2,24 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactElement, FormEvent } from "react";
 
 import {
-  createInitialPhoneControllerStatus,
-  PhoneMotionController,
-  type PhoneControllerStatus,
+    createInitialPhoneControllerStatus,
+    PhoneMotionController,
+    type PhoneControllerStatus,
 } from "../game/input/PhoneMotionController";
 import { normalizeRoomCode } from "../game/input/MotionTypes";
 
 function initialRoomFromUrl(): string {
-  return normalizeRoomCode(new URLSearchParams(window.location.search).get("room"));
+    return normalizeRoomCode(new URLSearchParams(window.location.search).get("room"));
 }
 
 function connectionLabel(status: PhoneControllerStatus): string {
-  if (status.connection === "error") return "RELAY ERROR";
-  if (status.connection === "disconnected") return "RECONNECTING";
-  if (status.peerConnected) return "DESKTOP PAIRED";
-  if (status.connection === "waiting") return "WAITING FOR DESKTOP";
-  if (status.connection === "connected") return "RELAY CONNECTED";
-  if (status.connection === "connecting") return "CONNECTING";
-  return "NOT CONNECTED";
+    if (status.connection === "error") return "RELAY ERROR";
+    if (status.connection === "disconnected") return "RECONNECTING";
+    if (status.peerConnected) return "DESKTOP PAIRED";
+    if (status.connection === "waiting") return "WAITING FOR DESKTOP";
+    if (status.connection === "connected") return "RELAY CONNECTED";
+    if (status.connection === "connecting") return "CONNECTING";
+    return "NOT CONNECTED";
 }
 
 export default function ControllerScreen(): ReactElement {
