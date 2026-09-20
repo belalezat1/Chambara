@@ -75,10 +75,10 @@ The temporary tunnel URL changes when restarted. Reopen the new URL and pair the
 
 The frontend defaults to:
 
-| Setting | Value |
-| --- | --- |
-| Server | `https://maincloud.spacetimedb.com` |
-| Database | `chambara-merged-20260920` |
+| Setting   | Value                                                                            |
+| --------- | -------------------------------------------------------------------------------- |
+| Server    | `https://maincloud.spacetimedb.com`                                              |
+| Database  | `chambara-merged-20260920`                                                       |
 | Dashboard | [Maincloud database dashboard](https://spacetimedb.com/chambara-merged-20260920) |
 
 To override these defaults, create `game/.env`:
@@ -200,12 +200,12 @@ flowchart TB
   style guest fill:#f5f3ff,stroke:#c4b5fd,color:#4c1d95
 ```
 
-| Layer | Responsibility |
-| --- | --- |
-| Phone + relay | Send motion, block input, and readiness to the paired laptop over the HTTPS tunnel. |
-| React UI + shared session | Manage menus and lobbies; keep connections alive across screens through `MatchSessionProvider`. |
-| Babylon.js engine | Render the dojo and run gameplay. The host resolves hits, blocks, clashes, and ring-outs; the guest applies those outcomes. |
-| SpacetimeDB | Store and replicate match state through reducers and subscriptions. Only the host can publish combat outcomes. |
+| Layer                     | Responsibility                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Phone + relay             | Send motion, block input, and readiness to the paired laptop over the HTTPS tunnel.                                         |
+| React UI + shared session | Manage menus and lobbies; keep connections alive across screens through `MatchSessionProvider`.                             |
+| Babylon.js engine         | Render the dojo and run gameplay. The host resolves hits, blocks, clashes, and ring-outs; the guest applies those outcomes. |
+| SpacetimeDB               | Store and replicate match state through reducers and subscriptions. Only the host can publish combat outcomes.              |
 
 **Shared database:** `chambara-merged-20260920` · **Tables:** `match`, `match_player`, `sword_pose`, `combat_intent`, `combat_outcome`.
 
