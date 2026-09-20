@@ -23,6 +23,7 @@ import {
   createInitialRelayStatus,
   createRoomCode,
   normalizeRoomCode,
+  type ControllerPhase,
   type ControllerSample,
   type RelayStatus,
 } from "../../game/input/MotionTypes";
@@ -45,6 +46,8 @@ export interface MatchSessionContextValue {
   leaveMatch: () => void;
   regeneratePhoneRoom: () => void;
   setReady: (ready: boolean) => void;
+  setPhonePhase: (phase: ControllerPhase) => void;
+  releasePhoneBlock: () => void;
   getOpponentIdentityHex: () => string | null;
   getIdentityHex: () => string | null;
   publishPose: (pose: PrimaryGripNetworkPose) => void;
@@ -59,6 +62,7 @@ export function MatchSessionProvider({ children }: { children: ReactNode }) {
   const clientRef = useRef<SpacetimeMatchClient | null>(null);
   const phoneRelayRef = useRef<MotionRelayClient | null>(null);
   const phoneReadyRef = useRef(false);
+  const phonePhaseRef = useRef<ControllerPhase>("lobby");
   const listenersRef = useRef(new Set<MatchSessionListener>());
   const [status, setStatus] = useState<MatchClientStatus>(createInitialMatchStatus);
   const [phoneRoomCode, setPhoneRoomCode] = useState(createRoomCode);
@@ -87,12 +91,14 @@ export function MatchSessionProvider({ children }: { children: ReactNode }) {
     );
     phoneRelayRef.current = relay;
     relay.start();
+    relay.setPhase(phonePhaseRef.current);
   }, [emit]);
 
   const resetPhoneRoom = useCallback(() => {
     phoneRelayRef.current?.stop();
     phoneRelayRef.current = null;
     phoneReadyRef.current = false;
+    phonePhaseRef.current = "lobby";
     const nextRoom = createRoomCode();
     setPhoneRoomCode(nextRoom);
     setPhoneStatus(createInitialRelayStatus("host", nextRoom));
@@ -149,6 +155,8 @@ export function MatchSessionProvider({ children }: { children: ReactNode }) {
 
   const leaveMatch = useCallback(() => {
     clientRef.current?.leave();
+    phonePhaseRef.current = "lobby";
+    phoneRelayRef.current?.setPhase("lobby");
     resetPhoneRoom();
   }, [resetPhoneRoom]);
 
@@ -158,6 +166,15 @@ export function MatchSessionProvider({ children }: { children: ReactNode }) {
 
   const setReady = useCallback((ready: boolean) => {
     clientRef.current?.setReady(ready);
+  }, []);
+
+  const setPhonePhase = useCallback((phase: ControllerPhase) => {
+    phonePhaseRef.current = phase === "fight" ? "fight" : "lobby";
+    phoneRelayRef.current?.setPhase(phonePhaseRef.current);
+  }, []);
+
+  const releasePhoneBlock = useCallback(() => {
+    phoneRelayRef.current?.releasePhoneBlock();
   }, []);
 
   const getOpponentIdentityHex = useCallback(
@@ -198,6 +215,8 @@ export function MatchSessionProvider({ children }: { children: ReactNode }) {
     leaveMatch,
     regeneratePhoneRoom,
     setReady,
+    setPhonePhase,
+    releasePhoneBlock,
     getOpponentIdentityHex,
     getIdentityHex,
     publishPose,
@@ -216,6 +235,8 @@ export function MatchSessionProvider({ children }: { children: ReactNode }) {
     publishCombatOutcome,
     publishPose,
     regeneratePhoneRoom,
+    releasePhoneBlock,
+    setPhonePhase,
     setReady,
     status,
     subscribe,

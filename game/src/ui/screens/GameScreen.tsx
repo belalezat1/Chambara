@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import QRCode from "qrcode";
 
 import OnEscape from "../components/OnEscape";
+import GameDebugPanel from "../components/GameDebugPanel";
 import { useMatchSession } from "../match/MatchSessionContext";
 import { useScreenNavigation } from "../navigation/ScreenNavigationContext";
 import type { GameLaunch } from "../types";
@@ -375,6 +376,25 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
     combatWinnerHex === "local" ||
     Boolean(combatWinnerHex && combatWinnerHex === matchStatus.identityHex);
   const inMatch = Boolean(matchStatus.roomCode && matchStatus.opponentConnected);
+  const showInspector = !(inMatch && relayStatus.peerConnected);
+  const setPhonePhase = session.setPhonePhase;
+  const releasePhoneBlock = session.releasePhoneBlock;
+
+  useEffect(() => {
+    if (launch.mode === "match") {
+      setPhonePhase("fight");
+      return () => setPhonePhase("lobby");
+    }
+    setPhonePhase("lobby");
+    return undefined;
+  }, [launch.mode, setPhonePhase]);
+
+  useEffect(() => {
+    gameRef.current?.setForceReleaseBlockHandler(() => {
+      releasePhoneBlock();
+    });
+    return () => gameRef.current?.setForceReleaseBlockHandler(null);
+  }, [releasePhoneBlock]);
 
   const dismissRingout = () => {
     if (inMatch) {
@@ -392,9 +412,10 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
   };
 
   const returnToMenu = useCallback(() => {
+    setPhonePhase("lobby");
     if (matchStatus.roomCode) session.leaveMatch();
     navigateToScreen("HOME");
-  }, [matchStatus.roomCode, navigateToScreen, session]);
+  }, [matchStatus.roomCode, navigateToScreen, session, setPhonePhase]);
 
   return (
     <main className="app-shell">
@@ -435,7 +456,7 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
         <div className="mode-chip"><span className="pulse" /> WEAPON POSE PROTOTYPE</div>
       </section>
 
-      <aside className="hud inspector-panel" aria-label="Motion lab controls">
+      <GameDebugPanel open={showInspector}>
         <div className="panel-heading">
           <div>
             <p className="eyebrow">INSPECTOR</p>
@@ -764,7 +785,7 @@ export default function GameScreen({ launch }: { launch: GameLaunch }): ReactEle
             {status.errors.map((error) => <p key={error}>{error}</p>)}
           </div>
         )}
-      </aside>
+      </GameDebugPanel>
 
       <footer className="hud footer-note">
         <span>Fixed simulation: {SIM_DT.toFixed(5)} s step</span>

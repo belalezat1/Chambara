@@ -45,6 +45,7 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
     createMatch,
     joinMatch,
     leaveMatch,
+    setPhonePhase,
   } = useMatchSession();
   const playSfx = useSoundStore((state) => state.playSfx);
   const [joinCode, setJoinCode] = useState("");
@@ -53,7 +54,6 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
   const [localError, setLocalError] = useState("");
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
-  const [opponentFallbackArmed, setOpponentFallbackArmed] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const transitionedRef = useRef(false);
 
@@ -68,9 +68,11 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
   const hostReady = status.isHost ? phoneStatus.peerReady : status.hostReady;
   const guestReady = status.isHost ? status.guestReady : phoneStatus.peerReady;
   const bothReady = opponentPresent && hostReady && guestReady;
-  // If Maincloud has not picked up additive `ready` / setReady yet, hostReady and
-  // guestReady stay false forever — fall back to opponent presence after a short wait.
-  const canEnterGame = bothReady || (opponentPresent && opponentFallbackArmed);
+  const canEnterGame = bothReady;
+
+  useEffect(() => {
+    setPhonePhase("lobby");
+  }, [setPhonePhase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,20 +91,12 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
   }, [controllerUrl]);
 
   useEffect(() => {
-    if (!opponentPresent || bothReady) {
-      setOpponentFallbackArmed(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setOpponentFallbackArmed(true), 2000);
-    return () => window.clearTimeout(timer);
-  }, [bothReady, opponentPresent]);
-
-  useEffect(() => {
     if (!canEnterGame || !activeCode || transitionedRef.current) return;
     transitionedRef.current = true;
+    setPhonePhase("fight");
     startGame({ mode: "match", roomCode: activeCode });
     navigateToScreen("GAME");
-  }, [activeCode, canEnterGame, navigateToScreen, startGame]);
+  }, [activeCode, canEnterGame, navigateToScreen, setPhonePhase, startGame]);
 
   useEffect(() => {
     if (dialogOpen) window.setTimeout(() => inputRef.current?.focus(), 40);
@@ -215,9 +209,7 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
                 ? "WAITING FOR OPPONENT"
                 : bothReady
                   ? "READY TO FIGHT"
-                  : opponentFallbackArmed
-                    ? "OPPONENT FOUND — STARTING"
-                    : "WAITING FOR BOTH PHONES"}
+                  : "WAITING FOR BOTH PHONES"}
           </p>
           <div className="ui-lobby-player-count" aria-label={`Players ${status.playerCount} of 2`}>
             <span>{status.playerCount}</span><b aria-hidden="true">/</b><span>2</span>

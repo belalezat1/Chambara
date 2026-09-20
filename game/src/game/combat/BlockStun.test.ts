@@ -7,6 +7,7 @@ import {
   STUN_SECONDS,
 } from "./CombatConstants.ts";
 import { resolveCombat, type FighterSnapshot } from "./CombatResolver.ts";
+import { advanceSlashArming } from "./CombatSlashArming.ts";
 
 function fighter(
   partial: Partial<FighterSnapshot> & Pick<FighterSnapshot, "identityHex">,
@@ -25,6 +26,17 @@ function fighter(
     invulnerable: false,
     ...partial,
   };
+}
+
+/** Mirrors BabylonGame.applyCombatOutcome localIsActor identity check. */
+function localIsActor(
+  actorIdentityHex: string,
+  localIdentityHex: string | null,
+): boolean {
+  return (
+    actorIdentityHex === localIdentityHex ||
+    actorIdentityHex === "local"
+  );
 }
 
 test("BLOCK_ATTACKER_STUN_SECONDS is 2.5 and longer than hit stun", () => {
@@ -58,4 +70,38 @@ test("directional block returns blocked with attacker as actor (not defender)", 
   assert.equal(result!.kind, "blocked");
   assert.equal(result!.actorIdentityHex, "attacker");
   assert.equal(result!.targetIdentityHex, "blocker");
+});
+
+test("apply-side: only the attacker (actor) receives block stun; blocker never does", () => {
+  const actorIdentityHex = "attacker-hex";
+  const targetIdentityHex = "blocker-hex";
+
+  assert.equal(localIsActor(actorIdentityHex, "attacker-hex"), true);
+  assert.equal(localIsActor(actorIdentityHex, "blocker-hex"), false);
+  assert.equal(localIsActor(actorIdentityHex, "local"), false);
+  assert.equal(localIsActor("local", "anything"), true);
+
+  const attackerGetsStun = localIsActor(actorIdentityHex, "attacker-hex");
+  const blockerGetsStun = localIsActor(actorIdentityHex, targetIdentityHex);
+  assert.equal(attackerGetsStun ? BLOCK_ATTACKER_STUN_SECONDS : 0, 2.5);
+  assert.equal(blockerGetsStun ? BLOCK_ATTACKER_STUN_SECONDS : 0, 0);
+});
+
+test("blocking consumes slash arming so auto-release is required for retaliation", () => {
+  const whileBlocking = advanceSlashArming({
+    slashCount: 3,
+    lastSlashCount: 2,
+    blocking: true,
+    stunned: false,
+    slashAccepted: true,
+  });
+  assert.equal(whileBlocking.armed, false);
+  const afterRelease = advanceSlashArming({
+    slashCount: 4,
+    lastSlashCount: whileBlocking.lastSlashCount,
+    blocking: false,
+    stunned: false,
+    slashAccepted: true,
+  });
+  assert.equal(afterRelease.armed, true);
 });

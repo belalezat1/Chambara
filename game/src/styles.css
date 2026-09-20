@@ -276,6 +276,7 @@ h2 { margin-top: 6px; font-size: 21px; letter-spacing: -0.03em; }
 @keyframes blink { 50% { opacity: 0.35; } }
 
 .controller-shell { display: grid; place-items: center; width: 100%; min-height: 100%; overflow: auto; padding: 24px 16px; background: radial-gradient(circle at 50% 0%, #1a1e26 0%, #0a0d12 58%); }
+.controller-shell-join { background: #050505; }
 .controller-card { width: min(100%, 520px); padding: clamp(22px, 5vw, 36px); border: 1px solid rgb(248 243 233 / 15%); border-radius: 22px; background: linear-gradient(145deg, rgb(18 24 31 / 97%), rgb(10 13 18 / 96%)); box-shadow: 0 25px 80px rgb(0 0 0 / 42%), inset 0 1px 0 rgb(255 255 255 / 4%); }
 .controller-header { position: relative; padding-bottom: 20px; border-bottom: 1px solid rgb(248 243 233 / 10%); }
 .controller-header h1 { margin-top: 9px; font-size: clamp(31px, 8vw, 48px); }
@@ -302,6 +303,118 @@ h2 { margin-top: 6px; font-size: 21px; letter-spacing: -0.03em; }
 .sensor-message { min-height: 39px; margin-top: 12px; padding: 10px 11px; border-radius: 8px; background: rgb(255 255 255 / 4%); color: rgb(248 243 233 / 67%); font-size: 11px; line-height: 1.45; }
 .sensor-active { border: 1px solid rgb(185 221 156 / 22%); color: #b9dd9c; }
 .sensor-error { border: 1px solid rgb(236 128 111 / 27%); color: #f0a79b; }
+
+/* Fight / lobby phone layouts — black canvas, red recenter, blue block. */
+.controller-fight-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.controller-lobby-shell {
+  padding: 0;
+}
+.controller-ready-fullscreen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 28px 20px;
+  border: 0;
+  cursor: pointer;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family: "Born2BSporty", "DM Mono", monospace;
+}
+.controller-ready-fullscreen strong {
+  font-size: clamp(64px, 18vw, 120px);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 0.95;
+}
+.controller-ready-fullscreen-kicker,
+.controller-ready-fullscreen-hint {
+  color: rgb(255 255 255 / 55%);
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.controller-ready-fullscreen.is-ready {
+  background: #102418;
+  color: #caffc4;
+}
+.controller-ready-fullscreen.is-ready strong { color: #caffc4; }
+.controller-ready-fullscreen:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.controller-fight-recenter {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: clamp(72px, 14vh, 110px);
+  margin: 0;
+  padding: 18px 16px;
+  border: 0;
+  cursor: pointer;
+  background: #c62828;
+  color: #fff;
+  font-family: "Born2BSporty", "DM Mono", monospace;
+  font-size: clamp(28px, 7vw, 42px);
+  letter-spacing: 0.12em;
+}
+.controller-fight-recenter:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.controller-fight-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1fr minmax(38%, 46%);
+  min-height: 0;
+}
+.controller-fight-void {
+  background: #000;
+}
+.controller-fight-block {
+  display: grid;
+  place-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 18px 14px;
+  border: 0;
+  cursor: pointer;
+  background: #1565c0;
+  color: #fff;
+  font-family: "Born2BSporty", "DM Mono", monospace;
+  touch-action: none;
+}
+.controller-fight-block strong {
+  font-size: clamp(18px, 4.4vw, 28px);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+.controller-fight-block.is-held {
+  background: #0d47a1;
+}
+
 .controller-block-zone {
   display: grid;
   place-content: center;

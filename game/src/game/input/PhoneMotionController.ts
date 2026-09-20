@@ -8,7 +8,12 @@ import {
   relativeOrientation,
 } from "./MotionMath";
 import { MotionRelayClient } from "./MotionRelayClient";
-import { normalizeRoomCode, type QuaternionTuple, type RelayStatus } from "./MotionTypes";
+import {
+  normalizeRoomCode,
+  type ControllerPhase,
+  type QuaternionTuple,
+  type RelayStatus,
+} from "./MotionTypes";
 import { SENSOR_SEND_INTERVAL_MS } from "./SendRate";
 
 type SensorState = "idle" | "requesting" | "waiting" | "active" | "error";
@@ -28,6 +33,7 @@ export interface PhoneControllerStatus {
   motionSeen: boolean;
   calibrated: boolean;
   ready: boolean;
+  phase: ControllerPhase;
   sentPerSecond: number;
   blocking: boolean;
   lastQuaternion: QuaternionTuple | null;
@@ -54,6 +60,7 @@ export function createInitialPhoneControllerStatus(room: string): PhoneControlle
     motionSeen: false,
     calibrated: false,
     ready: false,
+    phase: "lobby",
     sentPerSecond: 0,
     blocking: false,
     lastQuaternion: null,
@@ -92,6 +99,12 @@ export class PhoneMotionController {
       "phone",
       this.room,
       (relayStatus) => this.applyRelayStatus(relayStatus),
+      undefined,
+      (command) => {
+        if (command === "release_block" || command === "reset") {
+          this.setBlocking(false);
+        }
+      },
     );
   }
 
@@ -368,6 +381,7 @@ export class PhoneMotionController {
     this.status.connection = relayStatus.connection;
     this.status.peerConnected = relayStatus.peerConnected;
     this.status.relayRttMs = relayStatus.relayRttMs;
+    this.status.phase = relayStatus.phase;
     if (!relayStatus.peerConnected && this.status.ready) {
       this.status.ready = false;
     }

@@ -102,7 +102,11 @@ export default defineConfig({
                 } else if (role === "phone" && message.type === "ready") {
                   relayRoom.phoneReady = message.ready === true;
                   notifyPeers(relayRoom);
-                } else if (role === "host" && message.type === "reset") {
+                } else if (role === "host" && (
+                  message.type === "reset" ||
+                  message.type === "phase" ||
+                  message.type === "release_block"
+                )) {
                   const phone = relayRoom?.peers.get("phone");
                   if (phone) trySend(phone, message);
                 } else if (

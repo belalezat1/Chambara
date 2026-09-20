@@ -225,13 +225,22 @@ export class SpacetimeMatchClient {
   setReady(ready: boolean): void {
     if (!this.conn || !this.roomCode) return;
     const reducers = this.conn.reducers as { setReady?: (args: { ready: boolean }) => Promise<void> };
-    if (typeof reducers.setReady !== "function") return;
+    if (typeof reducers.setReady !== "function") {
+      combatDebug("ready.missing", { roomCode: this.roomCode });
+      return;
+    }
     try {
-      // Soft-fail when Maincloud has not published additive setReady yet — Lobby
-      // falls back to opponentConnected after a short wait.
-      reducers.setReady({ ready: Boolean(ready) }).catch(() => undefined);
-    } catch {
-      // ignore
+      reducers.setReady({ ready: Boolean(ready) }).catch((error: unknown) => {
+        combatDebug("ready.failed", {
+          roomCode: this.roomCode,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    } catch (error) {
+      combatDebug("ready.failed", {
+        roomCode: this.roomCode,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

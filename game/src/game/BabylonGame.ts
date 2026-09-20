@@ -521,6 +521,7 @@ const REMOTE_DUMMY_POSITION = new Vector3(SEAT_HALF_SPACING, 0, 0);
 const REMOTE_DUMMY_ROTATION_Y = -Math.PI / 2;
 const FOLLOW_CAMERA_HEIGHT = 1.62;
 const FOLLOW_CAMERA_DISTANCE = 1.0;
+const FOLLOW_CAMERA_STUN_DISTANCE = 1.55;
 const FOLLOW_CAMERA_SIDE_OFFSET = 0.08;
 const FOLLOW_CAMERA_LOOK_HEIGHT = 1.12;
 const FOLLOW_CAMERA_LOOK_AHEAD = 1.35;
@@ -528,6 +529,7 @@ const FOLLOW_CAMERA_DAMPING = 10;
 const LOCAL_UPPER_BODY_OPACITY = 0.03;
 const LOCAL_LEG_OPACITY = 0.05;
 const LOCAL_HAND_OPACITY = 1;
+const LOCAL_STUN_BODY_OPACITY = 1;
 const LOCAL_HAND_OUTLINE_WIDTH = 0.008;
 const LOCAL_SWORD_OUTLINE_WIDTH = 0.006;
 
@@ -590,6 +592,15 @@ export class BabylonGame {
   /** Authoritative duel-axis seats — reapplied after clips so anims cannot undo knockback. */
   private playerCombatX = -SEAT_HALF_SPACING;
   private dummyCombatX = SEAT_HALF_SPACING;
+  private localBodyOpacityMeshes: AbstractMesh[] = [];
+  private localBodyOpaque = false;
+  private lastLocalStunActive = false;
+  /**
+   * After a successful block as defender, ignore phone blocking until the phone
+   * releases — otherwise CombatSlashArming soft-locks retaliation.
+   */
+  private ignorePhoneBlockUntilRelease = false;
+  private onForceReleaseBlock: (() => void) | null = null;
 
   testSlash(): boolean {
     if (
@@ -646,7 +657,14 @@ export class BabylonGame {
       this.playerCombatX = -SEAT_HALF_SPACING;
       this.dummyCombatX = SEAT_HALF_SPACING;
       this.applyCombatSeats();
+      this.setLocalBodyOpaque(false);
+      this.ignorePhoneBlockUntilRelease = false;
     }
+  }
+
+  /** Host→phone release-block callback (motion-ws). */
+  setForceReleaseBlockHandler(handler: (() => void) | null): void {
+    this.onForceReleaseBlock = handler;
   }
 
   setRemoteCombatIntent(intent: RemoteCombatIntent | null): void {
@@ -996,6 +1014,8 @@ export class BabylonGame {
         this.dummy?.controller.play("AdvanceAfterHit");
         this.player?.controller.play("HitKnockback");
         this.playerInvulnUntil = now + HIT_INVULN_MS;
+        this.localStunUntil = now + STUN_SECONDS * 1000;
+        this.setLocalBodyOpaque(true);
       }
       // A landed hit already advances the attacker by ADVANCE_M while moving
       // the defender by KNOCKBACK_M. Regrouping here used to pull the attacker
@@ -1013,6 +1033,8 @@ export class BabylonGame {
       this.dummy?.controller.play("HitKnockback");
       this.playerInvulnUntil = now + STUN_SECONDS * 1000;
       this.dummyInvulnUntil = now + STUN_SECONDS * 1000;
+      this.localStunUntil = now + STUN_SECONDS * 1000;
+      this.setLocalBodyOpaque(true);
       window.setTimeout(() => {
         this.player?.controller.play("AdvanceAfterHit");
         this.dummy?.controller.play("AdvanceAfterHit");
@@ -1033,6 +1055,7 @@ export class BabylonGame {
         this.player?.controller.play("BlockedStun");
         this.localStunUntil = now + BLOCK_ATTACKER_STUN_SECONDS * 1000;
         // Do NOT grant full-duration invuln — blocker must be able to retaliate.
+        this.setLocalBodyOpaque(true);
         this.dummy?.controller.play("BlockIdle");
       } else {
         // Local is the blocker — never stunned, free to retaliate after releasing guard.
@@ -1042,10 +1065,8 @@ export class BabylonGame {
         this.lungeActive = false;
         this.lungeRecovering = false;
         this.dummy?.controller.play("BlockedStun");
-        // Keep block anim bookkeeping so clearBlockAnimation can exit cleanly.
-        if (this.playAnimation("BlockIdle", { speed: BabylonGame.BLOCK_CLIP_SPEED })) {
-          this.lastBlockAnimation = "BlockIdle";
-        }
+        // Auto-clear local block so CombatSlashArming cannot soft-lock retaliation.
+        this.forceReleaseLocalBlock();
       }
       this.regroupTarget = regroupTargets(
         localSeats,
@@ -1127,6 +1148,8 @@ export class BabylonGame {
     this.playerInvulnUntil = 0;
     this.dummyInvulnUntil = 0;
     this.localStunUntil = 0;
+    this.setLocalBodyOpaque(false);
+    this.ignorePhoneBlockUntilRelease = false;
     this.lastSoloResolvedSlashSeq = -1;
     this.lastResolvedSlashKey = "";
     this.playerCombatX = -SEAT_HALF_SPACING;
@@ -1609,9 +1632,11 @@ export class BabylonGame {
       : LOCAL_PLAYER_POSITION;
     const forward = root ? this.fighterForward(root) : new Vector3(1, 0, 0);
     const right = Vector3.Cross(Vector3.Up(), forward).normalize();
+    const stunned = performance.now() < this.localStunUntil;
+    const camDistance = stunned ? FOLLOW_CAMERA_STUN_DISTANCE : FOLLOW_CAMERA_DISTANCE;
     const desiredPosition = origin
       .add(Vector3.Up().scale(FOLLOW_CAMERA_HEIGHT))
-      .subtract(forward.scale(FOLLOW_CAMERA_DISTANCE))
+      .subtract(forward.scale(camDistance))
       .add(right.scale(FOLLOW_CAMERA_SIDE_OFFSET));
     const desiredTarget = origin
       .add(Vector3.Up().scale(FOLLOW_CAMERA_LOOK_HEIGHT))
@@ -1628,6 +1653,7 @@ export class BabylonGame {
 
   /** Fade the local avatar without fading its weapon, which must remain readable. */
   private makeLocalBodyTranslucent(meshes: AbstractMesh[]): void {
+    this.localBodyOpacityMeshes = [];
     const belongsToWeapon = (mesh: AbstractMesh): boolean => {
       let node: TransformNode | null = mesh;
       while (node) {
@@ -1677,7 +1703,59 @@ export class BabylonGame {
       configureOpacity(material, opacityForMesh(mesh));
       mesh.material = material;
       mesh.visibility = 1;
+      this.localBodyOpacityMeshes.push(mesh);
     }
+    this.localBodyOpaque = false;
+  }
+
+  /** Opaque body while local is hit/block-stunned; weapon stays visible either way. */
+  private setLocalBodyOpaque(opaque: boolean): void {
+    if (this.localBodyOpaque === opaque) return;
+    this.localBodyOpaque = opaque;
+    const opacityForMesh = (mesh: AbstractMesh): number => {
+      if (opaque) return LOCAL_STUN_BODY_OPACITY;
+      const name = mesh.name.toLowerCase();
+      if (/hand|thumb|forearm|lower_arm/.test(name)) return LOCAL_HAND_OPACITY;
+      if (/pelvis|thigh|shin|hakama|shoe/.test(name)) return LOCAL_LEG_OPACITY;
+      return LOCAL_UPPER_BODY_OPACITY;
+    };
+    for (const mesh of this.localBodyOpacityMeshes) {
+      const material = mesh.material;
+      if (!material) continue;
+      const opacity = opacityForMesh(mesh);
+      material.alpha = opacity;
+      material.transparencyMode = opacity >= 0.999
+        ? Material.MATERIAL_OPAQUE
+        : Material.MATERIAL_ALPHABLEND;
+      material.forceDepthWrite = opacity >= 0.999;
+      if (material instanceof MultiMaterial) {
+        for (const child of material.subMaterials) {
+          if (!child) continue;
+          child.alpha = opacity;
+          child.transparencyMode = opacity >= 0.999
+            ? Material.MATERIAL_OPAQUE
+            : Material.MATERIAL_ALPHABLEND;
+          child.forceDepthWrite = opacity >= 0.999;
+        }
+      }
+    }
+  }
+
+  private syncLocalStunPresentation(): void {
+    const stunned = performance.now() < this.localStunUntil;
+    if (stunned === this.lastLocalStunActive) return;
+    this.lastLocalStunActive = stunned;
+    if (!stunned) this.setLocalBodyOpaque(false);
+  }
+
+  /** Clear local guard so the blocker can retaliate after a successful block. */
+  private forceReleaseLocalBlock(): void {
+    this.phoneBlocking = false;
+    this.status.motion.blocking = false;
+    this.ignorePhoneBlockUntilRelease = true;
+    this.blockBlend = 0;
+    this.clearBlockAnimation();
+    this.onForceReleaseBlock?.();
   }
 
   private createLights(): void {
@@ -2597,6 +2675,7 @@ export class BabylonGame {
     this.status.motion.poseState = this.poseState;
     this.status.motion.targetPoseState = this.targetPoseState;
     this.status.motion.reachFraction = this.reachFraction;
+    this.syncLocalStunPresentation();
     // Slash step → lunge seats → refresh tip on lunged root → hit resolve.
     this.driveControllerMotion(dt);
     this.updateMatchCombatMotion(dt);
@@ -2875,7 +2954,14 @@ export class BabylonGame {
 
   private updateWeaponTarget(sample: ControllerSample, dt: number): void {
     if (!this.poseRig) return;
-    const blocking = sample.blocking === true;
+    let blocking = sample.blocking === true;
+    if (this.ignorePhoneBlockUntilRelease) {
+      if (blocking) {
+        blocking = false;
+      } else {
+        this.ignorePhoneBlockUntilRelease = false;
+      }
+    }
     this.phoneBlocking = blocking;
     const neutralRotation = this.computeGameplayNeutralWeaponRotation();
     const phoneDelta = tupleToQuaternion(sample.quaternion);
