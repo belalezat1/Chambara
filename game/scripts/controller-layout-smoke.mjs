@@ -1,7 +1,5 @@
 /**
- * Browser smoke: phone controller lobby Ready fullscreen + fight Recenter/Block layout.
- * Also checks lobby Ready gate UI no longer auto-starts after 2s without both Ready.
- *
+ * Browser smoke: phone controller always shows Recenter + Ready + Block.
  * Run with Vite up: node scripts/controller-layout-smoke.mjs
  */
 import { chromium } from "playwright";
@@ -40,24 +38,19 @@ async function main() {
 
   const room = "SMOKE1";
   const hostWs = await openHostWs(room);
-  hostWs.send(JSON.stringify({ type: "phase", phase: "lobby" }));
 
   await page.goto(`${BASE}/controller?room=${room}`, { waitUntil: "networkidle", timeout: 60_000 });
   await page.waitForTimeout(800);
 
-  // Lobby: fullscreen Ready
-  const ready = page.locator(".controller-ready-fullscreen");
-  await ready.waitFor({ timeout: 10_000 });
-  await page.screenshot({ path: `${ARTIFACTS}/controller_lobby_ready.png`, fullPage: true });
-  console.log("LOBBY_READY_VISIBLE", await ready.isVisible());
-
-  // Host flips to fight → Recenter + Block layout
-  hostWs.send(JSON.stringify({ type: "phase", phase: "fight" }));
   await page.waitForSelector(".controller-fight-recenter", { timeout: 10_000 });
+  await page.waitForSelector(".controller-fight-ready", { timeout: 5_000 });
   await page.waitForSelector(".controller-fight-block", { timeout: 5_000 });
-  await page.screenshot({ path: `${ARTIFACTS}/controller_fight_layout.png`, fullPage: true });
-  console.log("FIGHT_RECENTER_VISIBLE", await page.locator(".controller-fight-recenter").isVisible());
-  console.log("FIGHT_BLOCK_VISIBLE", await page.locator(".controller-fight-block").isVisible());
+  await page.screenshot({ path: `${ARTIFACTS}/controller_three_button_layout.png`, fullPage: true });
+
+  console.log("RECENTER", await page.locator(".controller-fight-recenter").isVisible());
+  console.log("READY", await page.locator(".controller-fight-ready").isVisible());
+  console.log("BLOCK", await page.locator(".controller-fight-block").isVisible());
+  console.log("FULLSCREEN_ABSENT", (await page.locator(".controller-ready-fullscreen").count()) === 0);
   console.log("METRICS_ABSENT", (await page.locator(".controller-metrics").count()) === 0);
 
   hostWs.close();
