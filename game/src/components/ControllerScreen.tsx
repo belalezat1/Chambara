@@ -89,9 +89,7 @@ export default function ControllerScreen(): ReactElement {
       status.orientationSeen ||
       (await enableMotion());
     if (!motionOk) return;
-    // Lobby Ready is fullscreen — auto-recenter if we have orientation.
     if (!status.calibrated) {
-      // enableMotion is async; give orientation a beat, then recenter.
       await new Promise((resolve) => window.setTimeout(resolve, 120));
       controller.recenter();
     }
@@ -99,9 +97,7 @@ export default function ControllerScreen(): ReactElement {
   };
 
   const connected = status.peerConnected;
-  const motionEnabled = status.sensorState === "active" || status.orientationSeen;
   const blocking = status.blocking;
-  const phase = status.phase;
   const readyEligible = Boolean(joinedRoom && connected);
 
   if (!joinedRoom) {
@@ -144,42 +140,8 @@ export default function ControllerScreen(): ReactElement {
     );
   }
 
-  if (phase !== "fight") {
-    return (
-      <main className="controller-fight-shell controller-lobby-shell" aria-label="Lobby ready">
-        <button
-          type="button"
-          className={"controller-ready-fullscreen" + (status.ready ? " is-ready" : "")}
-          aria-pressed={status.ready}
-          disabled={!status.ready && !readyEligible}
-          onClick={() => void tapReady()}
-        >
-          <span className="controller-ready-fullscreen-kicker">
-            {connected ? connectionLabel(status) : "WAITING FOR DESKTOP"}
-          </span>
-          <strong>
-            {status.ready
-              ? "READY"
-              : readyEligible
-                ? "READY"
-                : "WAITING"}
-          </strong>
-          <span className="controller-ready-fullscreen-hint">
-            {status.ready
-              ? "Tap to cancel"
-              : !connected
-                ? "Pair with desktop first"
-                : !motionEnabled
-                  ? "Tap to enable motion + ready up"
-                  : "Tap when you are set"}
-          </span>
-        </button>
-      </main>
-    );
-  }
-
   return (
-    <main className="controller-fight-shell" aria-label="Fight controls">
+    <main className="controller-fight-shell" aria-label="Phone controller">
       <button
         type="button"
         className="controller-fight-recenter"
@@ -193,7 +155,16 @@ export default function ControllerScreen(): ReactElement {
         RECENTER
       </button>
       <div className="controller-fight-body">
-        <div className="controller-fight-void" aria-hidden="true" />
+        <button
+          type="button"
+          className={"controller-fight-ready" + (status.ready ? " is-ready" : "")}
+          aria-pressed={status.ready}
+          disabled={!status.ready && !readyEligible}
+          onClick={() => void tapReady()}
+        >
+          <strong>READY</strong>
+          <span>{status.ready ? "TAP TO CANCEL" : connected ? "TAP TO READY" : "WAITING"}</span>
+        </button>
         <button
           type="button"
           className={"controller-fight-block" + (blocking ? " is-held" : "")}
