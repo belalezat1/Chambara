@@ -2,6 +2,7 @@ import {
   createInitialRelayStatus,
   isControllerSample,
   SessionSequenceAdmission,
+  type ControllerPhase,
   type ControllerSample,
   type QuaternionTuple,
   type RelayRole,
@@ -10,6 +11,7 @@ import {
 
 type RelayStatusListener = (status: RelayStatus) => void;
 type RelaySampleListener = (sample: ControllerSample) => void;
+type RelayHostCommandListener = (command: "release_block" | "reset") => void;
 
 const RELAY_PATH = "/motion-ws";
 const MAX_BUFFERED_AMOUNT = 16_384;
@@ -21,6 +23,7 @@ export class MotionRelayClient {
   private readonly room: string;
   private readonly statusListener: RelayStatusListener;
   private readonly sampleListener?: RelaySampleListener;
+  private readonly hostCommandListener?: RelayHostCommandListener;
   private readonly status: RelayStatus;
   private readonly sequenceAdmission = new SessionSequenceAdmission();
 
@@ -32,17 +35,20 @@ export class MotionRelayClient {
   private lastSampleAt: number | null = null;
   private rateWindowStarted = performance.now();
   private rateWindowCount = 0;
+  private advertisedPhase: ControllerPhase = "lobby";
 
   constructor(
     role: RelayRole,
     room: string,
     statusListener: RelayStatusListener,
     sampleListener?: RelaySampleListener,
+    hostCommandListener?: RelayHostCommandListener,
   ) {
     this.role = role;
     this.room = room;
     this.statusListener = statusListener;
     this.sampleListener = sampleListener;
+    this.hostCommandListener = hostCommandListener;
     this.status = createInitialRelayStatus(role, room);
   }
 
@@ -71,6 +77,7 @@ export class MotionRelayClient {
     if (socket) socket.close(1000, "Client stopped");
     this.status.connection = "idle";
     this.status.peerConnected = false;
+    this.status.peerReady = false;
     this.status.streamState = "idle";
     this.status.sessionGeneration = null;
     this.status.rawQuaternion = null;
@@ -89,6 +96,26 @@ export class MotionRelayClient {
     }
     this.socket.send(JSON.stringify(message));
     return true;
+  }
+
+  setReady(ready: boolean): void {
+    if (this.role !== "phone") return;
+    this.send({ type: "ready", ready: Boolean(ready) });
+  }
+
+  /** Desktop host → phone UI phase. Re-sent when the phone reconnects. */
+  setPhase(phase: ControllerPhase): void {
+    if (this.role !== "host") return;
+    this.advertisedPhase = phase === "fight" ? "fight" : "lobby";
+    this.status.phase = this.advertisedPhase;
+    this.send({ type: "phase", phase: this.advertisedPhase });
+    this.emitStatus();
+  }
+
+  /** Ask the paired phone to drop hold-to-block (post successful block). */
+  releasePhoneBlock(): void {
+    if (this.role !== "host") return;
+    this.send({ type: "release_block" });
   }
 
   private connect(): void {
@@ -135,6 +162,7 @@ export class MotionRelayClient {
       if (this.socket !== socket) return;
       this.socket = null;
       this.status.peerConnected = false;
+      this.status.peerReady = false;
       this.status.connection = "disconnected";
       this.status.streamState = "idle";
       if (event.code === 4000) {
@@ -199,14 +227,35 @@ export class MotionRelayClient {
         this.rateWindowStarted = performance.now();
       }
       this.status.peerConnected = peer;
+      this.status.peerReady = this.role === "host" && peer && message.phoneReady === true;
       this.status.sessionGeneration = advertisedGeneration;
       this.status.connection = peer ? "connected" : "waiting";
       this.emitStatus();
+      // Phone just joined while desktop is still in lobby/fight — push phase.
+      if (this.role === "host" && peer) {
+        this.send({ type: "phase", phase: this.advertisedPhase });
+      }
       return;
     }
 
     if (message.type === "pong" && typeof message.time === "number") {
       this.status.relayRttMs = Math.max(0, Math.round(performance.now() - message.time));
+      return;
+    }
+
+    if (this.role === "phone") {
+      if (message.type === "phase") {
+        const phase = message.phase === "fight" ? "fight" : "lobby";
+        if (this.status.phase !== phase) {
+          this.status.phase = phase;
+          this.emitStatus();
+        }
+        return;
+      }
+      if (message.type === "release_block" || message.type === "reset") {
+        this.hostCommandListener?.(message.type === "reset" ? "reset" : "release_block");
+        return;
+      }
       return;
     }
 
@@ -261,6 +310,7 @@ export class MotionRelayClient {
   private handleConnectionError(error: unknown): void {
     this.status.connection = "error";
     this.status.error = error instanceof Error ? error.message : String(error);
+    this.status.peerReady = false;
     this.emitStatus();
   }
 

@@ -10,6 +10,7 @@ import CreateOrJoinMatchReducer from "../create_or_join_match_reducer";
 import LeaveMatchReducer from "../leave_match_reducer";
 import PublishCombatOutcomeReducer from "../publish_combat_outcome_reducer";
 import ResetMatchCombatReducer from "../reset_match_combat_reducer";
+import SetReadyReducer from "../set_ready_reducer";
 import UpdateSwordPoseReducer from "../update_sword_pose_reducer";
 import UpsertCombatIntentReducer from "../upsert_combat_intent_reducer";
 
@@ -17,6 +18,7 @@ export type CreateOrJoinMatchParams = __Infer<typeof CreateOrJoinMatchReducer>;
 export type LeaveMatchParams = __Infer<typeof LeaveMatchReducer>;
 export type PublishCombatOutcomeParams = __Infer<typeof PublishCombatOutcomeReducer>;
 export type ResetMatchCombatParams = __Infer<typeof ResetMatchCombatReducer>;
+export type SetReadyParams = __Infer<typeof SetReadyReducer>;
 export type UpdateSwordPoseParams = __Infer<typeof UpdateSwordPoseReducer>;
 export type UpsertCombatIntentParams = __Infer<typeof UpsertCombatIntentReducer>;
 

@@ -14,4 +14,6 @@ export default __t.row({
   identity: __t.identity().primaryKey(),
   roomCode: __t.string().name("room_code"),
   joinedMs: __t.u64().name("joined_ms"),
+  // Do NOT declare `ready` here until Maincloud has published the additive
+  // column — mismatched BSATN layout throws DataView RangeError on subscribe.
 });

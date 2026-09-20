@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "test": "node --experimental-strip-types --experimental-specifier-resolution=node --test-concurrency=1 --test src/game/input/CircleSword.test.ts src/game/input/BlockGuard.test.ts src/game/input/ArmPoseMath.test.ts src/game/input/MotionMath.test.ts src/game/input/SessionGeneration.test.ts src/game/input/SendRate.test.ts src/game/input/TorsoFollowMath.test.ts src/game/input/WeaponTarget.test.ts src/game/net/PrimaryGripProtocol.test.ts src/game/combat/CombatResolver.test.ts src/game/combat/CombatFootwork.test.ts src/game/combat/CombatCollision.test.ts src/game/combat/CombatSlashArming.test.ts src/game/combat/CombatRemoteBlade.test.ts",
+    "test": "node --experimental-strip-types --experimental-specifier-resolution=node --test-concurrency=1 --test src/game/input/CircleSword.test.ts src/game/input/BlockGuard.test.ts src/game/input/ArmPoseMath.test.ts src/game/input/MotionMath.test.ts src/game/input/SessionGeneration.test.ts src/game/input/SendRate.test.ts src/game/input/TorsoFollowMath.test.ts src/game/input/WeaponTarget.test.ts src/game/net/PrimaryGripProtocol.test.ts src/game/combat/CombatResolver.test.ts src/game/combat/CombatFootwork.test.ts src/game/combat/CombatCollision.test.ts src/game/combat/CombatSlashArming.test.ts src/game/combat/CombatRemoteBlade.test.ts src/game/combat/BlockStun.test.ts",
     "typecheck": "tsc --noEmit",
     "build": "vite build",
     "tunnel-mac": "bash scripts/start-tunnel.sh",
@@ -20,7 +20,9 @@
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "spacetimedb": "^2.10.1"
+    "spacetimedb": "^2.10.1",
+    "motion": "^12.35.0",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.6",

@@ -28,12 +28,21 @@ export type RelayConnectionState =
   | "disconnected"
   | "error";
 export type RelayStreamState = "idle" | "live" | "stale";
+/** Desktop-driven phone UI phase over /motion-ws. */
+export type ControllerPhase = "lobby" | "fight";
 
 export interface RelayStatus {
   role: RelayRole;
   room: string;
   connection: RelayConnectionState;
   peerConnected: boolean;
+  /** Host-side readiness reported by the paired phone. */
+  peerReady: boolean;
+  /**
+   * Phone-side: latest phase from the desktop host.
+   * Host-side: last phase we advertised (informational).
+   */
+  phase: ControllerPhase;
   streamState: RelayStreamState;
   samplesPerSecond: number;
   sessionGeneration: number | null;
@@ -166,6 +175,8 @@ export function createInitialRelayStatus(role: RelayRole, room: string): RelaySt
     room,
     connection: "idle",
     peerConnected: false,
+    peerReady: false,
+    phase: "lobby",
     streamState: "idle",
     samplesPerSecond: 0,
     sessionGeneration: null,
