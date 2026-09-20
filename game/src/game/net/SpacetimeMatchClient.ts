@@ -19,6 +19,8 @@ export type MatchClientStatus = {
   opponentConnected: boolean;
   hostReady: boolean;
   guestReady: boolean;
+  /** False until Maincloud publishes additive setReady / match_player.ready. */
+  readySupported: boolean;
   error: string;
 };
 
@@ -80,6 +82,7 @@ export function createInitialMatchStatus(): MatchClientStatus {
     opponentConnected: false,
     hostReady: false,
     guestReady: false,
+    readySupported: false,
     error: "",
   };
 }
@@ -349,6 +352,7 @@ export class SpacetimeMatchClient {
             connection: "connected",
             identityHex: identity.toHexString(),
             error: "",
+            readySupported: typeof (conn.reducers as { setReady?: unknown }).setReady === "function",
           });
           combatDebug("socket.connected", {
             identity: shortIdentity(identity.toHexString()),

@@ -54,6 +54,7 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
   const [localError, setLocalError] = useState("");
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [opponentFallbackArmed, setOpponentFallbackArmed] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const transitionedRef = useRef(false);
 
@@ -68,7 +69,9 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
   const hostReady = status.isHost ? phoneStatus.peerReady : status.hostReady;
   const guestReady = status.isHost ? status.guestReady : phoneStatus.peerReady;
   const bothReady = opponentPresent && hostReady && guestReady;
-  const canEnterGame = bothReady;
+  // Maincloud still lacks match_player.ready, so Spacetime Ready flags never flip.
+  // Keep a presence fallback until additive setReady is published + bindings regen.
+  const canEnterGame = bothReady || (opponentPresent && opponentFallbackArmed);
 
   useEffect(() => {
     setPhonePhase("lobby");
@@ -89,6 +92,15 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
       cancelled = true;
     };
   }, [controllerUrl]);
+
+  useEffect(() => {
+    if (!opponentPresent || bothReady) {
+      setOpponentFallbackArmed(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setOpponentFallbackArmed(true), 2000);
+    return () => window.clearTimeout(timer);
+  }, [bothReady, opponentPresent]);
 
   useEffect(() => {
     if (!canEnterGame || !activeCode || transitionedRef.current) return;
@@ -209,7 +221,9 @@ export default function LobbyScreen({ startGame }: { startGame: (launch: GameLau
                 ? "WAITING FOR OPPONENT"
                 : bothReady
                   ? "READY TO FIGHT"
-                  : "WAITING FOR BOTH PHONES"}
+                  : opponentFallbackArmed
+                    ? "OPPONENT FOUND — STARTING"
+                    : "WAITING FOR BOTH PHONES"}
           </p>
           <div className="ui-lobby-player-count" aria-label={`Players ${status.playerCount} of 2`}>
             <span>{status.playerCount}</span><b aria-hidden="true">/</b><span>2</span>
