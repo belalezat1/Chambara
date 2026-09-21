@@ -1,0 +1,14 @@
+{
+  "name": "Chambara",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "spacetimedb",
+      "command": "spacetime start"
+    },
+    {
+      "name": "vite",
+      "command": "cd game && npm run dev"
+    }
+  ]
+}
